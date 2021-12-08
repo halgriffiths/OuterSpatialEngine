@@ -126,7 +126,7 @@ public:
 class AskResult : public TransactionResult {
 public:
     AskResult(int sender_id, std::string commodity)
-            : TransactionResult(sender_id, std::move(commodity), BID_RESULT) {};
+            : TransactionResult(sender_id, std::move(commodity), ASK_RESULT) {};
 
     std::string ToString() override {
         std::string output("ASK RESULT from ");
