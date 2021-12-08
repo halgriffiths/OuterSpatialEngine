@@ -168,6 +168,30 @@ public:
     }
 
 private:
+    bool TakeBidStake(BidOffer& offer) {
+        if (offer.quantity <= 0 || offer.unit_price <= 0) {
+            logger.Log(Log::WARN, "Rejected nonsensical bid: " + offer.ToString());
+            return false;
+        }
+
+        //we refund the agent (if applicable) upon transaction resolution
+        auto res = known_traders[offer.sender_id]->TryTakeMoney(offer.quantity*offer.unit_price, true);
+        if (res == 0) {
+            return false;
+        }
+    }
+    bool TakeAskStake(AskOffer& offer) {
+        if (offer.quantity <= 0 || offer.unit_price <= 0) {
+            logger.Log(Log::WARN, "Rejected nonsensical ask: " + offer.ToString());
+            return false;
+        }
+        //we refund the agent (if applicable) upon transaction resolution
+        auto res = known_traders[offer.sender_id]->TryTakeCommodity(offer.commodity, offer.quantity, true);
+        if (res == 0) {
+            return false;
+        }
+    }
+
     void MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double unit_price) {
         // TODO: Update inventory/cash values
     }
@@ -202,6 +226,9 @@ private:
         while (!bids.empty() && !asks.empty()) {
             BidOffer& curr_bid = bids[0];
             AskOffer& curr_ask = asks[0];
+
+            TakeBidStake(curr_bid);
+            TakeAskStake(curr_ask);
 
             if (curr_ask.unit_price > curr_bid.unit_price) {
                 break;

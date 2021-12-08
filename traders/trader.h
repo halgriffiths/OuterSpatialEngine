@@ -53,6 +53,73 @@ public:
         track_costs = 0;
     }
 
+    double TryTakeMoney(double quantity, bool atomic) override {
+        double amount_transferred = 0;
+        if (!atomic) {
+            // Take what you can
+            amount_transferred = std::min(money, quantity);
+        } else {
+            if (money < quantity) {
+                logger.Log(Log::DEBUG, "Failed to take $"+std::to_string(quantity));
+                amount_transferred = 0;
+            } else {
+                amount_transferred = quantity;
+            }
+        }
+        money -= amount_transferred;
+        return amount_transferred;
+    }
+    void AddMoney(double quantity) override {
+        money += quantity;
+    }
+
+    int TryAddCommodity(std::string commodity, int quantity, bool atomic) override {
+        int actual_transferred = 0;
+        auto comm = _inventory.GetItem(commodity);
+        if (!comm) {
+            //item unknown, fail
+            logger.Log(Log::ERROR, "Tried to add unknown item "+commodity);
+            return 0;
+        }
+
+        if (_inventory.GetEmptySpace() >= quantity*comm->size) {
+            actual_transferred = quantity;
+        } else {
+            if (atomic) {
+                actual_transferred = 0;
+                logger.Log(Log::DEBUG, "Failed to add "+commodity+std::string(" x") + std::to_string(quantity));
+            } else {
+                actual_transferred = (int) (_inventory.GetEmptySpace()/comm->size);
+            }
+        }
+        _inventory.AddItem(commodity, actual_transferred);
+        return actual_transferred;
+    }
+
+    int TryTakeCommodity(std::string commodity, int quantity, bool atomic) override {
+        int actual_transferred = 0;
+        auto comm = _inventory.GetItem(commodity);
+        if (!comm) {
+            //item unknown, fail
+            logger.Log(Log::ERROR, "Tried to take unknown item "+commodity);
+            return 0;
+        }
+
+        auto stored = _inventory.Query(commodity);
+        if ( *stored>= quantity) {
+            actual_transferred = quantity;
+        } else {
+            if (atomic) {
+                actual_transferred = 0;
+                logger.Log(Log::DEBUG, "Failed to take "+commodity+std::string(" x") + std::to_string(quantity));
+            } else {
+                actual_transferred = *stored;
+            }
+        }
+        _inventory.TakeItem(commodity, actual_transferred);
+        return actual_transferred;
+    }
+
     double GetEmptySpace() { return _inventory.GetEmptySpace(); };
 
     void ReceiveMessage(Message incoming_message) override {

@@ -51,6 +51,15 @@ public:
         return true;
     }
 
+    //ignores space constraints - must be checked by trader
+    void AddItem(const std::string& name, int quantity) {
+        inventory[name].stored += quantity;
+    }
+    //ignores space constraints - must be checked by trader
+    void TakeItem(const std::string& name, int quantity) {
+        inventory[name].stored -= quantity;
+    }
+
     std::optional<int> Query(const std::string& name) {
         if (inventory.count(name) != 1) {
             return std::nullopt;; // no entry found
