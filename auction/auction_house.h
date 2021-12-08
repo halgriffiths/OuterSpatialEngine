@@ -227,8 +227,20 @@ private:
             BidOffer& curr_bid = bids[0];
             AskOffer& curr_ask = asks[0];
 
-            TakeBidStake(curr_bid);
-            TakeAskStake(curr_ask);
+            if (!TakeBidStake(curr_bid)) {
+                bid_result.UpdateWithNoTrade(curr_bid.quantity);
+                SendMessage(*Message(id).AddBidResult(std::move(bid_result)), curr_bid.sender_id);
+                bids.erase(bids.begin());
+                bid_result = BidResult(id, commodity);
+                continue;
+            }
+            if (!TakeAskStake(curr_ask)) {
+                ask_result.UpdateWithNoTrade(curr_ask.quantity);
+                SendMessage(*Message(id).AddAskResult(std::move(ask_result)), curr_ask.sender_id);
+                asks.erase(asks.begin());
+                ask_result = AskResult(id, commodity);
+                continue;
+            }
 
             if (curr_ask.unit_price > curr_bid.unit_price) {
                 break;
