@@ -55,9 +55,10 @@ void SimpleTradeTest() {
 
     std::cout << "\n -- Received bids from traders --\n" <<std::endl;
     auction_house->Tick();
+    std::cout << "Done." << std::endl;
 }
 
 int main() {
     SimpleTradeTest();
-    std::cout << "Done." << std::endl;
+
 }
