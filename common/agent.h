@@ -27,5 +27,8 @@ public:
     virtual void AddMoney(double quantity) {};
     virtual int TryAddCommodity(std::string commodity, int quantity, bool atomic) {return 0;};
     virtual int TryTakeCommodity(std::string commodity, int quantity, bool atomic) {return 0;};
+
+    virtual std::optional<int> Query(const std::string& name) { return std::nullopt; }
+    virtual double GetEmptySpace() { return 0; }
 };
 #endif//CPPBAZAARBOT_AGENT_H

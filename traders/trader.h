@@ -120,7 +120,8 @@ public:
         return actual_transferred;
     }
 
-    double GetEmptySpace() { return _inventory.GetEmptySpace(); };
+    std::optional<int> Query(const std::string& name) override { return _inventory.Query(name); }
+    double GetEmptySpace() override { return _inventory.GetEmptySpace(); }
 
     void ReceiveMessage(Message incoming_message) override {
         logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());

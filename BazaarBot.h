@@ -15,10 +15,4 @@
 
 #include "metrics/metrics.h"
 
-#include <iostream>
-
-void hello() {
-        std::cout << "library call" << std::endl;
-};
-
 #endif //BAZAAR_BOT_H

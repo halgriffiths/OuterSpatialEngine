@@ -179,6 +179,7 @@ private:
         if (res == 0) {
             return false;
         }
+        return true;
     }
     bool TakeAskStake(AskOffer& offer) {
         if (offer.quantity <= 0 || offer.unit_price <= 0) {
@@ -190,6 +191,31 @@ private:
         if (res == 0) {
             return false;
         }
+        return true;
+    }
+
+    void CloseBid(BidOffer bid, BidResult bid_result, bool refund = true) {
+        if (bid.quantity > 0) {
+            // partially unfilled
+            bid_result.UpdateWithNoTrade(bid.quantity);
+            if (refund) {
+                known_traders[bid.sender_id]->AddMoney(bid_result.quantity_untraded * bid.unit_price);
+            }
+
+        }
+        SendMessage(*Message(id).AddBidResult(std::move(bid_result)), bid.sender_id);
+    }
+
+    void CloseAsk(AskOffer ask, AskResult ask_result, bool refund = true) {
+        if (ask.quantity > 0) {
+            // partially unfilled
+            ask_result.UpdateWithNoTrade(ask.quantity);
+            if (refund) {
+                known_traders[ask.sender_id]->TryAddCommodity(ask.commodity, ask_result.quantity_untraded, false);
+            }
+
+        }
+        SendMessage(*Message(id).AddAskResult(std::move(ask_result)), ask.sender_id);
     }
 
     void MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double unit_price) {
@@ -228,15 +254,13 @@ private:
             AskOffer& curr_ask = asks[0];
 
             if (!TakeBidStake(curr_bid)) {
-                bid_result.UpdateWithNoTrade(curr_bid.quantity);
-                SendMessage(*Message(id).AddBidResult(std::move(bid_result)), curr_bid.sender_id);
+                CloseBid(std::move(curr_bid), std::move(bid_result), false);
                 bids.erase(bids.begin());
                 bid_result = BidResult(id, commodity);
                 continue;
             }
             if (!TakeAskStake(curr_ask)) {
-                ask_result.UpdateWithNoTrade(curr_ask.quantity);
-                SendMessage(*Message(id).AddAskResult(std::move(ask_result)), curr_ask.sender_id);
+                CloseAsk(std::move(curr_ask), std::move(ask_result), false);
                 asks.erase(asks.begin());
                 ask_result = AskResult(id, commodity);
                 continue;
@@ -270,33 +294,28 @@ private:
 
             if (curr_bid.quantity <= 0) {
                 // Fulfilled buy order
-                SendMessage(*Message(id).AddBidResult(std::move(bid_result)), curr_bid.sender_id);
+                CloseBid(std::move(curr_bid), std::move(bid_result));
                 bids.erase(bids.begin());
-                // Reset bid result
                 bid_result = BidResult(id, commodity);
             }
             if (curr_ask.quantity <= 0) {
                 // Fulfilled sell order
-                SendMessage(*Message(id).AddAskResult(std::move(ask_result)), curr_ask.sender_id);
+                CloseAsk(std::move(curr_ask), std::move(ask_result));
                 asks.erase(asks.begin());
-                // Reset result
                 ask_result = AskResult(id, commodity);
             }
         }
 
         while (!bids.empty()) {
             BidOffer& curr_bid = bids[0];
-            bid_result.UpdateWithNoTrade(curr_bid.quantity);
-            SendMessage(*Message(id).AddBidResult(std::move(bid_result)), curr_bid.sender_id);
+            CloseBid(std::move(curr_bid), std::move(bid_result));
             bids.erase(bids.begin());
             // Reset result
             bid_result = BidResult(id, commodity);
         }
         if (!asks.empty()) {
             AskOffer& curr_ask = asks[0];
-            // ditto for last ask
-            ask_result.UpdateWithNoTrade(curr_ask.quantity);
-            SendMessage(*Message(id).AddAskResult(std::move(ask_result)), curr_ask.sender_id);
+            CloseAsk(std::move(curr_ask), std::move(ask_result));
             asks.erase(asks.begin());
             // Reset result
             ask_result = AskResult(id, commodity);
