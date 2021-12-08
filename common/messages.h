@@ -12,58 +12,51 @@
 
 class Agent;
 class BasicTrader;
+namespace Msg {
+    enum MessageType {
+        EMPTY,
+        REGISTER_REQUEST,
+        REGISTER_RESPONSE,
+        BID_OFFER,
+        ASK_OFFER,
+        BID_RESULT,
+        ASK_RESULT
+    };
+}
 
-enum MessageType {
-    BASE,
-    REGISTER_REQUEST,
-    REGISTER_RESPONSE,
-    BID_OFFER,
-    ASK_OFFER,
-    BID_RESULT,
-    ASK_RESULT
-};
-
-// base class for inheritance only
-class Message {
-public:
-    int sender_id; //originator of message
-    Message(int sender_id, MessageType type) : sender_id(sender_id), type(type) {};
-    virtual std::string ToString() {return std::string("");};
-    MessageType GetType() {
-        return type;
+struct EmptyMessage {
+    std::string ToString() {
+        std::string output("Empty message");
+        return output;
     }
-private:
-    MessageType type;
 };
-
-// Not currently transmitted over FakeNetwork
-class RegisterRequest : public Message{
-public:
+struct RegisterRequest {
+    int sender_id;
     std::shared_ptr<BasicTrader> trader_pointer;
-    RegisterRequest(int sender_id, std::shared_ptr<BasicTrader> new_trader)
-    : Message(sender_id, REGISTER_REQUEST)
-    , trader_pointer(new_trader) {};
 
-    std::string ToString() override {
+    RegisterRequest(int sender_id, std::shared_ptr<BasicTrader> new_trader)
+            : sender_id(sender_id)
+            , trader_pointer(new_trader) {};
+
+    std::string ToString() {
         std::string output("RegistrationRequest from ");
         output.append(std::to_string(sender_id))
                 .append(" ");
         return output;
     }
-
 };
 
-class RegisterResponse : public Message{
-public:
+struct RegisterResponse {
+    int sender_id;
     bool accepted;
     std::optional<std::string> rejection_reason;
 
     RegisterResponse(int sender_id, bool accepted, std::optional<std::string> reason = std::nullopt)
-    : Message(sender_id, REGISTER_RESPONSE)
-    , accepted(accepted)
-    , rejection_reason(std::move(reason)) {};
+            : sender_id(sender_id)
+            , accepted(accepted)
+            , rejection_reason(std::move(reason)) {};
 
-    std::string ToString() override {
+    std::string ToString() {
         std::string output("RegistrationRequest from ");
         output.append(std::to_string(sender_id))
                 .append(": ");
@@ -77,19 +70,18 @@ public:
         }
         return output;
     }
-
 };
 
-class TransactionResult : public Message {
-public:
+struct BidResult {
+    int sender_id;
     std::string commodity;
     int quantity_untraded = 0;
     int quantity_traded = 0;
     double avg_price = 0;
 
-    TransactionResult(int sender_id, std::string commodity, MessageType type)
-        : Message(sender_id, type)
-        , commodity(std::move(commodity)) {};
+    BidResult(int sender_id, std::string commodity)
+            : sender_id(sender_id)
+            , commodity(std::move(commodity)) {};
 
     void UpdateWithTrade(int trade_quantity, double unit_price) {
         avg_price = (avg_price*quantity_traded + unit_price*trade_quantity)/(trade_quantity + quantity_traded);
@@ -100,14 +92,7 @@ public:
         quantity_untraded += remainder;
     }
 
-};
-
-class BidResult : public TransactionResult {
-public:
-    BidResult(int sender_id, std::string commodity)
-            : TransactionResult(sender_id, std::move(commodity), BID_RESULT) {};
-
-    std::string ToString() override {
+    std::string ToString() {
         std::string output("BID RESULT from ");
         output.append(std::to_string(sender_id))
                 .append(": Bought ")
@@ -123,12 +108,27 @@ public:
     }
 };
 
-class AskResult : public TransactionResult {
-public:
-    AskResult(int sender_id, std::string commodity)
-            : TransactionResult(sender_id, std::move(commodity), ASK_RESULT) {};
+struct AskResult {
+    int sender_id;
+    std::string commodity;
+    int quantity_untraded = 0;
+    int quantity_traded = 0;
+    double avg_price = 0;
 
-    std::string ToString() override {
+    AskResult(int sender_id, std::string commodity)
+            : sender_id(sender_id)
+            , commodity(std::move(commodity)) {};
+
+    void UpdateWithTrade(int trade_quantity, double unit_price) {
+        avg_price = (avg_price*quantity_traded + unit_price*trade_quantity)/(trade_quantity + quantity_traded);
+        quantity_traded += trade_quantity;
+    }
+
+    void UpdateWithNoTrade(int remainder) {
+        quantity_untraded += remainder;
+    }
+
+    std::string ToString() {
         std::string output("ASK RESULT from ");
         output.append(std::to_string(sender_id))
                 .append(": Sold   ")
@@ -144,30 +144,19 @@ public:
     }
 };
 
-// base class for inheritance only
-class Offer : public Message{
-public:
+struct BidOffer {
+    int sender_id;
     std::string commodity;
     int quantity;
     double unit_price;
 
-    Offer(int agent_id, const std::string& commodity_name, int quantity, double unit_price, MessageType type)
-        : Message(agent_id, type)
-        , commodity(commodity_name)
-        , quantity(quantity)
-        , unit_price(unit_price) {};
-};
+    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price)
+            : sender_id(sender_id)
+            , commodity(commodity_name)
+            , quantity(quantity)
+            , unit_price(unit_price) {};
 
-bool operator< (const Offer& a, const Offer& b) {
-    return a.unit_price < b.unit_price;
-};
-
-class BidOffer : public Offer {
-public:
-    BidOffer(int agent_id, const std::string& commodity_name, int quantity, double unit_price)
-        : Offer(agent_id, commodity_name, quantity, unit_price, BID_OFFER) {};
-
-    std::string ToString() override {
+    std::string ToString() {
         std::string output("BID from ");
         output.append(std::to_string(sender_id))
                 .append(": ")
@@ -178,15 +167,21 @@ public:
                 .append(std::to_string(unit_price));
         return output;
     }
-
-
 };
 
-class AskOffer : public Offer {
-public:
-    AskOffer(int agent_id, const std::string& commodity_name, int quantity, double unit_price)
-            : Offer(agent_id, commodity_name, quantity, unit_price, ASK_OFFER) {};
-    std::string ToString() override {
+struct AskOffer {
+    int sender_id;
+    std::string commodity;
+    int quantity;
+    double unit_price;
+
+    AskOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price)
+            : sender_id(sender_id)
+            , commodity(commodity_name)
+            , quantity(quantity)
+            , unit_price(unit_price) {};
+
+    std::string ToString() {
         std::string output("ASK from ");
         output.append(std::to_string(sender_id))
                 .append(": ")
@@ -197,5 +192,102 @@ public:
                 .append(std::to_string(unit_price));
         return output;
     }
+};
+
+bool operator< (const BidOffer& a, const BidOffer& b) {
+    return a.unit_price < b.unit_price;
+};
+bool operator< (const AskOffer& a, const AskOffer& b) {
+    return a.unit_price < b.unit_price;
+};
+
+class Message {
+public:
+    int sender_id; //originator of message
+    std::optional<EmptyMessage> empty_message = std::nullopt;
+    std::optional<RegisterRequest> register_request = std::nullopt;
+    std::optional<RegisterResponse> register_response = std::nullopt;
+    std::optional<BidOffer> bid_offer = std::nullopt;
+    std::optional<AskOffer> ask_offer = std::nullopt;
+    std::optional<BidResult> bid_result = std::nullopt;
+    std::optional<AskResult> ask_result = std::nullopt;
+
+    Message(int sender_id)
+        : sender_id(sender_id)
+        , type(Msg::EMPTY)
+        , empty_message(EmptyMessage()) {};
+    
+    Msg::MessageType GetType() {
+        return type;
+    }
+    Message* AddRegisterRequest(RegisterRequest msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::REGISTER_REQUEST;
+        register_request = std::move(msg);
+        return this;
+    }
+    Message* AddRegisterResponse(RegisterResponse msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::REGISTER_RESPONSE;
+        register_response = std::move(msg);
+        return this;
+    }
+    Message* AddBidOffer(BidOffer msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::BID_OFFER;
+        bid_offer = std::move(msg);
+        return this;
+    }
+    Message* AddBidResult(BidResult msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::BID_RESULT;
+        bid_result = std::move(msg);
+        return this;
+    }
+    Message* AddAskOffer(AskOffer msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::ASK_OFFER;
+        ask_offer = std::move(msg);
+        return this;
+    }
+    Message* AddAskResult(AskResult msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::ASK_RESULT;
+        ask_result = std::move(msg);
+        return this;
+    }
+
+    std::string ToString() {
+        if (type == Msg::EMPTY) {
+            return empty_message->ToString();
+        } else if (type == Msg::REGISTER_REQUEST) {
+            return register_request->ToString();
+        } else if (type == Msg::REGISTER_RESPONSE) {
+            return register_response->ToString();
+        } else if (type == Msg::BID_OFFER) {
+            return bid_offer->ToString();
+        } else if (type == Msg::BID_RESULT) {
+            return bid_result->ToString();
+        } else if (type == Msg::ASK_OFFER) {
+            return ask_offer->ToString();
+        } else if (type == Msg::ASK_RESULT) {
+            return ask_result->ToString();
+        }
+    }
+    
+private:
+    Msg::MessageType type;
 };
 #endif//CPPBAZAARBOT_MESSAGES_H

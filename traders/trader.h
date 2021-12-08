@@ -55,13 +55,13 @@ public:
 
     double GetEmptySpace() { return _inventory.GetEmptySpace(); };
 
-    void ReceiveMessage(Message& incoming_message) override {
+    void ReceiveMessage(Message incoming_message) {
         logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
     }
 
     void SendMessage(Message& outgoing_message, std::shared_ptr<Agent> recipient) override {
         logger.LogSent(recipient->id, Log::INFO, outgoing_message.ToString());
-        recipient->ReceiveMessage(outgoing_message);
+        recipient->ReceiveMessage(std::move(outgoing_message));
     }
     // TODO: continue from line 108 in BasicAgent.cs
 };
