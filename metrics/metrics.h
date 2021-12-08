@@ -10,8 +10,8 @@ namespace Log{
     enum LogLevel {
         ERROR,
         WARN,
-        INFO,
-        VERBOSE
+        INFO, //Received messages (but not sent message) are reported
+        DEBUG //Everything is logged
     };
 }
 // Base class makes no logs
@@ -42,8 +42,8 @@ public:
         if (level > verbosity) {
             return;
         }
-        char header_string[30]; //yolo lmao
-        snprintf(header_string, 30, "[%s][Sent    ] %s >>> %d - ",LogLevelToCString(level), name.c_str(), to);
+        char header_string[100]; //yolo lmao
+        snprintf(header_string, 100, "[%s][Sent    ] %s >>> %d - ",LogLevelToCString(level), name.c_str(), to);
         LogInternal(std::string(header_string) + message);
     }
 
@@ -51,8 +51,8 @@ public:
         if (level > verbosity) {
             return;
         }
-        char header_string[30]; //yolo lmao
-        snprintf(header_string, 30, "[%s][Received] %s <<< %d - ",LogLevelToCString(level), name.c_str(), from);
+        char header_string[100]; //yolo lmao
+        snprintf(header_string, 100, "[%s][Received] %s <<< %d - ",LogLevelToCString(level), name.c_str(), from);
         LogInternal(std::string(header_string) + message);
     }
 
@@ -74,8 +74,8 @@ private:
             level_name = "WARN";
         } else if (level == Log::INFO) {
             level_name = "INFO";
-        } else if (level == Log::VERBOSE) {
-            level_name = "VERBOSE";
+        } else if (level == Log::DEBUG) {
+            level_name = "DEBUG";
         } else {
             level_name = "UNKNOWN";
         }

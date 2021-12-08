@@ -9,7 +9,7 @@
 std::shared_ptr<BasicTrader> CreateAndRegister(int id,
                                                const std::vector<std::pair<Commodity, int>>& inv,
                                                const std::shared_ptr<AuctionHouse>& auction_house) {
-    auto trader = std::make_shared<BasicTrader>(id, auction_house, "test_class", 100.0, 50, inv, Log::WARN);
+    auto trader = std::make_shared<BasicTrader>(id, auction_house, "test_class", 100.0, 50, inv, Log::INFO);
 
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house);
     return trader;
@@ -25,7 +25,7 @@ void SimpleTradeTest() {
     auto comm = Commodity("comm");
     auto comm1 = Commodity("comm1");
 
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::VERBOSE);
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::INFO);
     auction_house->RegisterCommodity(comm);
     auction_house->RegisterCommodity(comm1);
 
