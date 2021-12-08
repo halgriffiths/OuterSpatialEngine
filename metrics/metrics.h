@@ -14,6 +14,24 @@ namespace Log{
         DEBUG //Everything is logged
     };
 }
+
+namespace {
+    const char* LogLevelToCString(Log::LogLevel level) {
+        const char* level_name;
+        if (level == Log::ERROR) {
+            level_name = "ERROR";
+        } else if (level == Log::WARN) {
+            level_name = "WARN";
+        } else if (level == Log::INFO) {
+            level_name = "INFO";
+        } else if (level == Log::DEBUG) {
+            level_name = "DEBUG";
+        } else {
+            level_name = "UNKNOWN";
+        }
+        return level_name;
+    }
+}
 // Base class makes no logs
 class Logger {
 public:
@@ -64,23 +82,5 @@ public:
         snprintf(header_string, 30, "[%s] %s: ",LogLevelToCString(level), name.c_str());
         LogInternal(std::string(header_string) + message);
     }
-
-private:
-    const char* LogLevelToCString(Log::LogLevel level) {
-        const char* level_name;
-        if (level == Log::ERROR) {
-            level_name = "ERROR";
-        } else if (level == Log::WARN) {
-            level_name = "WARN";
-        } else if (level == Log::INFO) {
-            level_name = "INFO";
-        } else if (level == Log::DEBUG) {
-            level_name = "DEBUG";
-        } else {
-            level_name = "UNKNOWN";
-        }
-        return level_name;
-    }
-
 };
 #endif//CPPBAZAARBOT_METRICS_H
