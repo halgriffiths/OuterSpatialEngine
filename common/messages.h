@@ -102,8 +102,10 @@ struct BidResult {
                 .append(" @ avg price $")
                 .append(std::to_string(avg_price))
                 .append(" (")
-                .append(std::to_string(quantity_untraded))
-                .append(" unbought)");
+                .append(std::to_string(quantity_traded))
+                .append("/")
+                .append(std::to_string(quantity_traded+quantity_untraded))
+                .append(" bought)");
         return output;
     }
 };
@@ -138,8 +140,10 @@ struct AskResult {
                 .append(" @ avg price $")
                 .append(std::to_string(avg_price))
                 .append(" (")
-                .append(std::to_string(quantity_untraded))
-                .append(" unsold)");
+                .append(std::to_string(quantity_traded))
+                .append("/")
+                .append(std::to_string(quantity_untraded+quantity_traded))
+                .append(" sold)");
         return output;
     }
 };

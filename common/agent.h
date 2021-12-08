@@ -22,7 +22,8 @@ public:
         std::cout << "[Sent    ] By" << std::to_string(id) << ": " << outgoing_message.ToString() << std::endl;
         recipient->ReceiveMessage(std::move(outgoing_message));
     }
-
+    virtual bool HasMoney(double quantity) {return false;};
+    virtual bool HasCommodity(std::string commodity, int quantity) {return false;};
     virtual double TryTakeMoney(double quantity, bool atomic) {};
     virtual void AddMoney(double quantity) {};
     virtual int TryAddCommodity(std::string commodity, int quantity, bool atomic) {return 0;};

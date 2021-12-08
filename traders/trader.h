@@ -52,6 +52,17 @@ public:
 
         track_costs = 0;
     }
+    bool HasMoney(double quantity) override {
+        return (money >= quantity);
+    }
+
+    bool HasCommodity(std::string commodity, int quantity) override {
+        auto stored = _inventory.Query(commodity);
+        if ( !stored) {
+            return false;
+        }
+        return (*stored >= quantity);
+    }
 
     double TryTakeMoney(double quantity, bool atomic) override {
         double amount_transferred = 0;

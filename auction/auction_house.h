@@ -168,58 +168,62 @@ public:
     }
 
 private:
-    bool TakeBidStake(BidOffer& offer) {
-        if (offer.quantity <= 0 || offer.unit_price <= 0) {
+    bool CheckBidStake(BidOffer& offer) {
+        if (offer.quantity < 0 || offer.unit_price <= 0) {
             logger.Log(Log::WARN, "Rejected nonsensical bid: " + offer.ToString());
             return false;
         }
 
         //we refund the agent (if applicable) upon transaction resolution
-        auto res = known_traders[offer.sender_id]->TryTakeMoney(offer.quantity*offer.unit_price, true);
-        if (res == 0) {
+        auto res = known_traders[offer.sender_id]->HasMoney(offer.quantity*offer.unit_price);
+        if (!res) {
+            logger.Log(Log::DEBUG, "Failed to take Bid stake: " + offer.ToString());
             return false;
         }
         return true;
     }
-    bool TakeAskStake(AskOffer& offer) {
-        if (offer.quantity <= 0 || offer.unit_price <= 0) {
+    bool CheckAskStake(AskOffer& offer) {
+        if (offer.quantity < 0 || offer.unit_price <= 0) {
             logger.Log(Log::WARN, "Rejected nonsensical ask: " + offer.ToString());
             return false;
         }
         //we refund the agent (if applicable) upon transaction resolution
-        auto res = known_traders[offer.sender_id]->TryTakeCommodity(offer.commodity, offer.quantity, true);
-        if (res == 0) {
+        auto res = known_traders[offer.sender_id]->HasCommodity(offer.commodity, offer.quantity);
+        if (!res) {
+            logger.Log(Log::DEBUG, "Failed to take Ask stake: " + offer.ToString());
             return false;
         }
         return true;
     }
 
-    void CloseBid(BidOffer bid, BidResult bid_result, bool refund = true) {
+    void CloseBid(BidOffer bid, BidResult bid_result) {
         if (bid.quantity > 0) {
             // partially unfilled
             bid_result.UpdateWithNoTrade(bid.quantity);
-            if (refund) {
-                known_traders[bid.sender_id]->AddMoney(bid_result.quantity_untraded * bid.unit_price);
-            }
-
         }
         SendMessage(*Message(id).AddBidResult(std::move(bid_result)), bid.sender_id);
     }
 
-    void CloseAsk(AskOffer ask, AskResult ask_result, bool refund = true) {
+    void CloseAsk(AskOffer ask, AskResult ask_result) {
         if (ask.quantity > 0) {
             // partially unfilled
             ask_result.UpdateWithNoTrade(ask.quantity);
-            if (refund) {
-                known_traders[ask.sender_id]->TryAddCommodity(ask.commodity, ask_result.quantity_untraded, false);
-            }
-
         }
         SendMessage(*Message(id).AddAskResult(std::move(ask_result)), ask.sender_id);
     }
 
     void MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double unit_price) {
-        // TODO: Update inventory/cash values
+        // take from seller
+        auto actual_quantity = known_traders[seller]->TryTakeCommodity(commodity, quantity, true);
+        if (actual_quantity == 0) {
+            // this may be unrecoverable, not sure
+            logger.Log(Log::ERROR, "Trade corrupted! Shortchanging buyer");
+            return;
+        }
+        known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, false);
+
+        known_traders[seller]->TryTakeMoney(actual_quantity*unit_price, false);
+        known_traders[buyer]->AddMoney(actual_quantity*unit_price);
     }
 
     void ResolveOffers(const std::string& commodity) {
@@ -253,14 +257,14 @@ private:
             BidOffer& curr_bid = bids[0];
             AskOffer& curr_ask = asks[0];
 
-            if (!TakeBidStake(curr_bid)) {
-                CloseBid(std::move(curr_bid), std::move(bid_result), false);
+            if (!CheckBidStake(curr_bid)) {
+                CloseBid(std::move(curr_bid), std::move(bid_result));
                 bids.erase(bids.begin());
                 bid_result = BidResult(id, commodity);
                 continue;
             }
-            if (!TakeAskStake(curr_ask)) {
-                CloseAsk(std::move(curr_ask), std::move(ask_result), false);
+            if (!CheckAskStake(curr_ask)) {
+                CloseAsk(std::move(curr_ask), std::move(ask_result));
                 asks.erase(asks.begin());
                 ask_result = AskResult(id, commodity);
                 continue;
