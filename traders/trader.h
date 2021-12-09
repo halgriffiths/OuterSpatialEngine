@@ -58,7 +58,6 @@ private:
     double profit_last_round = 0;
     int  external_lookback = 15; //history range (num ticks)
     int internal_lookback = 50; //history range (num trades)
-    ConsoleLogger logger;
 
 public:
     std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
@@ -69,6 +68,8 @@ public:
     double profit = 0;
 
     double track_costs;
+
+    ConsoleLogger logger;
 
 public:
     BasicTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, std::string class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
@@ -134,7 +135,7 @@ public:
 };
 
 void BasicTrader::ReceiveMessage(Message incoming_message) {
-    logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
+    logger.LogReceived(incoming_message.sender_id, Log::DEBUG, incoming_message.ToString());
     inbox.push_back(incoming_message);
 }
 void BasicTrader::SendMessage(Message& outgoing_message, int recipient) {
@@ -202,9 +203,11 @@ double BasicTrader::TryTakeMoney(double quantity, bool atomic) {
     return amount_transferred;
 }
 void BasicTrader::ForceTakeMoney(double quantity) {
+    logger.Log(Log::DEBUG, "Lost money: $" + std::to_string(quantity));
     money -= quantity;
 }
 void BasicTrader::AddMoney(double quantity) {
+    logger.Log(Log::DEBUG, "Gained money: $" + std::to_string(quantity));
     money += quantity;
 }
 
@@ -388,11 +391,13 @@ bool Role::Random(double chance) {
 }
 void Role::Produce(BasicTrader& trader, std::string commodity, int amount, double chance) {
     if (Random(chance)) {
+        trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
         trader.TryAddCommodity(commodity, amount, false);
     }
 }
 void Role::Consume(BasicTrader& trader, std::string commodity, int amount, double chance) {
     if (Random(chance)) {
+        trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount));
         trader.TryTakeCommodity(commodity, amount, false);
     }
 }

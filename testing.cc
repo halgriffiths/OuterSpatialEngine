@@ -40,15 +40,20 @@ TEST(BasicTests, SimpleTradeTest) {
     
     auto comm = Commodity("comm");
     auto comm1 = Commodity("comm1");
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::ERROR);
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
     auction_house->RegisterCommodity(comm);
     auction_house->RegisterCommodity(comm1);
+    std::vector<InventoryItem> inv {{comm, 0, 0}, {comm1, 9, 0}};
 
+    std::shared_ptr<Role> AI_logic;
+    AI_logic = std::make_shared<EmptyRole>();
     std::vector<std::pair<Commodity, int>> c_v = {{comm, 5}, {comm1,9}};
-    auto Alice = CreateAndRegisterBasic(1, c_v, auction_house);
-    auto Bob = CreateAndRegisterBasic(2, c_v, auction_house);
-    auto Charlie = CreateAndRegisterBasic(3, c_v, auction_house);
-    auto Dan =  CreateAndRegisterBasic(4, c_v, auction_house);
+
+    auto Alice = CreateAndRegister(1, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
+    Alice->logger.verbosity = Log::DEBUG;
+    auto Bob = CreateAndRegister(2, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
+    auto Charlie = CreateAndRegister(3, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
+    auto Dan = CreateAndRegister(4, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
 
     auction_house->Tick();
     ASSERT_EQ(auction_house->NumKnownTraders(), 4);

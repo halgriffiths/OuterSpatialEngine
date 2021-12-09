@@ -54,7 +54,7 @@ public:
     }
     void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
         logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
-        logger.LogSent(recipient->id, Log::INFO, outgoing_message.ToString());
+        logger.LogSent(recipient->id, Log::DEBUG, outgoing_message.ToString());
         recipient->ReceiveMessage(std::move(outgoing_message));
     }
     void FlushOutbox() {
@@ -75,7 +75,7 @@ public:
         logger.Log(Log::DEBUG, "Flushing inbox");
         while (!inbox.empty()) {
             auto& incoming_message = inbox.back();
-            logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
+            logger.LogReceived(incoming_message.sender_id, Log::DEBUG, incoming_message.ToString());
             if (incoming_message.GetType() == Msg::EMPTY) {
                 //no-op
             } else if (incoming_message.GetType() == Msg::BID_OFFER) {
@@ -227,6 +227,8 @@ private:
 
         known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, false);
         known_traders[buyer]->AddMoney(actual_quantity*unit_price);
+        auto info_msg = std::string("Made trade: ") + std::to_string(seller) + std::string(" >>> ") + std::to_string(buyer) + std::string(" : ") + commodity + std::string(" x") + std::to_string(quantity) + std::string(" @ $") + std::to_string(unit_price);
+        logger.Log(Log::INFO, info_msg);
         return 0;
     }
     void ResolveOffers(const std::string& commodity) {
