@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.19)
-set(CMAKE_CXX_STANDARD 20)
+cmake_minimum_required(VERSION 3.10)
+set(CMAKE_CXX_STANDARD 17)
 
 
 ############# LIBRARY ############
@@ -27,9 +27,9 @@ target_link_libraries(gnuplot_iostream INTERFACE
 
 # Add main.cpp file of project root directory as source file
 set(SOURCE_FILES main.cc)
-add_executable(simple_example ${SOURCE_FILES})
-target_compile_features(simple_example PRIVATE cxx_std_17)
-target_link_libraries(simple_example PRIVATE
+add_executable(driver ${SOURCE_FILES})
+target_compile_features(driver PRIVATE cxx_std_17)
+target_link_libraries(driver PRIVATE
         gnuplot_iostream
         util
         )
@@ -42,4 +42,5 @@ set(TEST_SOURCES testing.cc)
 add_executable(runTests ${TEST_SOURCES})
 set_target_properties(runTests PROPERTIES LINKER_LANGUAGE CXX)
 # Link runTests with newly generated bazaarbot library
+add_dependencies(runTests bazaarbot)
 target_link_libraries(runTests ${CMAKE_SOURCE_DIR}/libbazaarbot.a ${GTEST_LIBRARIES} pthread)
