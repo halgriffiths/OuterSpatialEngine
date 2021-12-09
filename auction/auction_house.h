@@ -69,7 +69,7 @@ public:
     void SendMessage(Message& outgoing_message, int recipient) {
         outbox.emplace_back(recipient,std::move(outgoing_message));
     }
-    void SendDirect(Message& outgoing_message, std::shared_ptr<Agent> recipient) {
+    void SendDirect(Message outgoing_message, std::shared_ptr<Agent> recipient) {
         logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
         logger.LogSent(recipient->id, Log::INFO, outgoing_message.ToString());
         recipient->ReceiveMessage(std::move(outgoing_message));
@@ -214,18 +214,27 @@ private:
         SendMessage(*Message(id).AddAskResult(std::move(ask_result)), ask.sender_id);
     }
 
-    void MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double unit_price) {
+    // 0 - success
+    // 1 - seller failed
+    // 2 - buyer failed
+    int MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double unit_price) {
         // take from seller
         auto actual_quantity = known_traders[seller]->TryTakeCommodity(commodity, quantity, true);
         if (actual_quantity == 0) {
             // this may be unrecoverable, not sure
-            logger.Log(Log::ERROR, "Trade corrupted! Shortchanging buyer");
-            return;
+            logger.Log(Log::ERROR, "Seller lacks good! Aborting trade");
+            return 1;
         }
-        known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, false);
+        auto actual_money = known_traders[buyer]->TryTakeMoney(actual_quantity*unit_price, true);
+        if (actual_money == 0) {
+            // this may be unrecoverable, not sure
+            logger.Log(Log::ERROR, "Buyer lacks money! Aborting trade");
+            return 2;
+        }
 
-        known_traders[seller]->TryTakeMoney(actual_quantity*unit_price, false);
+        known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, false);
         known_traders[buyer]->AddMoney(actual_quantity*unit_price);
+        return 0;
     }
 
     void ResolveOffers(const std::string& commodity) {
@@ -283,7 +292,22 @@ private:
                 // MAKE TRANSACTION
                 int buyer = curr_bid.sender_id;
                 int seller = curr_ask.sender_id;
-                MakeTransaction(commodity, buyer, seller, quantity_traded, clearing_price);
+                auto res = MakeTransaction(commodity, buyer, seller, quantity_traded, clearing_price);
+                if (res == 1) {
+                    //seller failed
+                    CloseAsk(std::move(curr_ask), std::move(ask_result));
+                    asks.erase(asks.begin());
+                    // Reset result
+                    ask_result = AskResult(id, commodity);
+                    break;
+                }
+                if (res == 2) {
+                    //buyer failed
+                    CloseBid(std::move(curr_bid), std::move(bid_result));
+                    bids.erase(bids.begin());
+                    bid_result = BidResult(id, commodity);
+                    break;
+                }
                 // update the offers and results
                 curr_bid.quantity -= quantity_traded;
                 curr_ask.quantity -= quantity_traded;

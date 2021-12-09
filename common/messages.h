@@ -57,7 +57,7 @@ struct RegisterResponse {
             , rejection_reason(std::move(reason)) {};
 
     std::string ToString() {
-        std::string output("RegistrationRequest from ");
+        std::string output("RegistrationResponse from ");
         output.append(std::to_string(sender_id))
                 .append(": ");
         if (accepted) {
