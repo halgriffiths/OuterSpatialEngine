@@ -32,8 +32,8 @@ struct EmptyMessage {
 };
 struct RegisterRequest {
     int sender_id;
-    std::shared_ptr<Agent> trader_pointer;
-    RegisterRequest(int sender_id, std::shared_ptr<Agent> new_trader)
+    std::weak_ptr<Agent> trader_pointer;
+    RegisterRequest(int sender_id, std::weak_ptr<Agent> new_trader)
             : sender_id(sender_id)
             , trader_pointer(new_trader) {};
 

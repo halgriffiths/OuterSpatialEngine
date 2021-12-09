@@ -121,19 +121,21 @@ public:
         if (requested_id == id) {
             auto msg = Message(id);
             msg.AddRegisterResponse(RegisterResponse(id, false, "ID clash with auction house"));
-            SendDirect(msg, request->trader_pointer);
+            std::shared_ptr<Agent> ptr = request->trader_pointer.lock();
+            SendDirect(msg, ptr);
             return;
         }
 
         if (known_traders.find(requested_id) != known_traders.end()) {
             auto msg = Message(id);
             msg.AddRegisterResponse(RegisterResponse(id, false, "ID clash with existing trader"));
-            SendDirect(msg, request->trader_pointer);
+            std::shared_ptr<Agent> ptr = request->trader_pointer.lock();
+            SendDirect(msg, ptr);
             return;
         }
 
         // Otherwise, OK the request and register
-        known_traders[requested_id] = request->trader_pointer;
+        known_traders[requested_id] = request->trader_pointer.lock();
         auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
         SendMessage(*msg, requested_id);
     }

@@ -30,13 +30,13 @@ namespace {
 }
 class BasicTrader : public Agent {
 private:
-    std::shared_ptr<Role> logic;
+    //std::shared_ptr<Role> logic;
     double MIN_PRICE = 0.01;
     int ticks = 0;
     friend AuctionHouse;
     Inventory _inventory;
     // TODO Change this to an array to allow multiple auction houses to be traded with at once
-    std::shared_ptr<AuctionHouse> auction_house;
+    std::weak_ptr<AuctionHouse> auction_house;
 
     std::vector<Message> inbox;
     std::vector<std::pair<int, Message>> outbox;
@@ -58,7 +58,7 @@ public:
     double track_costs;
 
 public:
-    BasicTrader(int id, std::shared_ptr<AuctionHouse> auction_house_ptr, std::string  class_name, double starting_money, double inv_capacity, const std::vector<std::pair<Commodity, int>> &starting_inv, Log::LogLevel log_level = Log::WARN)
+    BasicTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::string  class_name, double starting_money, double inv_capacity, const std::vector<std::pair<Commodity, int>> &starting_inv, Log::LogLevel log_level = Log::WARN)
     : Agent(id)
     , auction_house(std::move(auction_house_ptr))
     , class_name(class_name)
@@ -93,12 +93,12 @@ public:
             auto& outgoing = outbox.back();
             outbox.pop_back();
             // Trader can currently only talk to auction houses (not other traders)
-            if (outgoing.first != auction_house->id) {
+            if (outgoing.first != auction_house.lock()->id) {
                 logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
                 continue;
             }
             logger.LogSent(outgoing.first, Log::DEBUG, outgoing.second.ToString());
-            auction_house->ReceiveMessage(std::move(outgoing.second));
+            auction_house.lock()->ReceiveMessage(std::move(outgoing.second));
         }
         logger.Log(Log::DEBUG, "Flush finished");
     }
@@ -235,7 +235,7 @@ public:
         if (surplus >= 1) {
             auto offer = CreateAsk(commodity, 1);
             if (offer.quantity > 0) {
-                SendMessage(*Message(id).AddAskOffer(offer), auction_house->id);
+                SendMessage(*Message(id).AddAskOffer(offer), auction_house.lock()->id);
             }
         }
 
@@ -249,14 +249,14 @@ public:
             {
                 auto offer = CreateBid(commodity, limit);
                 if (offer.quantity > 0) {
-                    SendMessage(*Message(id).AddBidOffer(offer), auction_house->id);
+                    SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
                 }
             }
         }
     };
     BidOffer CreateBid(std::string commodity, int max_limit) {
         //AI agents offer a fair bid price - 5% above recent average market value
-        double bid_price = 1.05*auction_house->AverageHistoricalPrice(commodity, external_lookback);
+        double bid_price = 1.05* (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
         int ideal = DetermineBuyQuantity(commodity);
 
         //can't buy more than limit
@@ -275,7 +275,7 @@ public:
     };
 
     int DetermineBuyQuantity(std::string commodity) {
-        double avg_price = auction_house->AverageHistoricalPrice(commodity, external_lookback);
+        double avg_price = auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback);
         std::pair<double, double> range = ObserveTradingRange(commodity, internal_lookback);
         if (range.first == 0 && range.second == 0) {
             //uninitialised range
@@ -313,7 +313,7 @@ public:
         logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."));
         destroyed = true;
         _inventory.inventory.clear();
-        auction_house = nullptr;
+        auction_house.reset();
     }
     void Tick() {
         FlushInbox();

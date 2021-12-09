@@ -74,7 +74,7 @@ void SimpleTradeTest() {
     stored = Dan->Query("comm");
     assert(stored);
     assert(*stored == 5);
-    std::cout << "SimpleTradeTest passed." << std::endl;
+    std::cout << "SimpleTradeTest passed.\n" << std::endl;
 }
 
 void InvalidRegistrationTest() {
@@ -94,13 +94,10 @@ void InvalidRegistrationTest() {
     auction_house->Tick();
 
     assert(auction_house->NumKnownTraders() == 1);
-    std::cout << "InvalidRegistrationTest passed." << std::endl;
+    std::cout << "InvalidRegistrationTest passed.\n" << std::endl;
 }
 
 void RunAllTests() {
-    InvalidRegistrationTest();
-    InvalidRegistrationTest();
-    InvalidRegistrationTest();
     SimpleTradeTest();
     InvalidRegistrationTest();
 }
