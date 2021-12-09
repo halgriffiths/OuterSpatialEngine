@@ -16,9 +16,19 @@ class AuctionHouse;
 
 class BasicTrader : public Agent {
 private:
+    int ticks = 0;
     friend AuctionHouse;
     Inventory _inventory;
+    // TODO Change this to an array to allow multiple auction houses to be traded with at once
     std::shared_ptr<Agent> auction_house;
+
+    std::vector<Message> inbox;
+    std::vector<std::pair<int, Message>> outbox;
+
+    std::map<std::string, std::vector<double>> _observedTradingRange;
+    double _profit = 0;
+    int _lookback = 15; //history range (default 15 ticks)
+    ConsoleLogger logger;
 
 public:
     std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
@@ -31,7 +41,6 @@ public:
     double track_costs;
 
 public:
-
     BasicTrader(int id, std::shared_ptr<Agent> auction_house_ptr, std::string  class_name, double starting_money, double inv_capacity, const std::vector<std::pair<Commodity, int>> &starting_inv, Log::LogLevel log_level = Log::WARN)
     : Agent(id)
     , auction_house(std::move(auction_house_ptr))
@@ -52,11 +61,50 @@ public:
     // Messaging functions
     void ReceiveMessage(Message incoming_message) override {
         logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
+        inbox.push_back(incoming_message);
     }
-    void SendMessage(Message& outgoing_message, std::shared_ptr<Agent> recipient) override {
-        logger.LogSent(recipient->id, Log::DEBUG, outgoing_message.ToString());
-        recipient->ReceiveMessage(std::move(outgoing_message));
+    void SendMessage(Message& outgoing_message, int recipient) override {
+        outbox.emplace_back(recipient, std::move(outgoing_message));
     }
+
+    void FlushOutbox() {
+        logger.Log(Log::DEBUG, "Flushing outbox");
+        while (!outbox.empty()) {
+            auto& outgoing = outbox.back();
+            outbox.pop_back();
+            // Trader can currently only talk to auction houses (not other traders)
+            if (outgoing.first != auction_house->id) {
+                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
+                continue;
+            }
+            logger.LogSent(outgoing.first, Log::DEBUG, outgoing.second.ToString());
+            auction_house->ReceiveMessage(std::move(outgoing.second));
+        }
+        logger.Log(Log::DEBUG, "Flush finished");
+    }
+    void FlushInbox() {
+        logger.Log(Log::DEBUG, "Flushing inbox");
+        while (!inbox.empty()) {
+            auto& incoming_message = inbox.back();
+            if (incoming_message.GetType() == Msg::EMPTY) {
+                //no-op
+            } else if (incoming_message.GetType() == Msg::BID_RESULT) {
+                ProcessBidResult(incoming_message);
+            } else if (incoming_message.GetType() == Msg::ASK_RESULT) {
+                ProcessAskResult(incoming_message);
+            } else if (incoming_message.GetType() == Msg::REGISTER_RESPONSE) {
+                ProcessRegistrationResponse(incoming_message);
+            } else {
+                std::cout << "Unknown/unsupported message type " << incoming_message.GetType() << std::endl;
+            }
+            inbox.pop_back();
+        }
+        logger.Log(Log::DEBUG, "Flush finished");
+    }
+
+    void ProcessBidResult(Message& message) {};
+    void ProcessAskResult(Message& message) {};
+    void ProcessRegistrationResponse(Message& message) {};
 
     // Inventory functions
     bool HasMoney(double quantity) override {
@@ -139,5 +187,10 @@ public:
     double GetEmptySpace() override { return _inventory.GetEmptySpace(); }
 
     // TODO: continue from line 108 in BasicAgent.cs
+    void Tick() {
+        FlushInbox();
+        FlushOutbox();
+        ticks++;
+    }
 };
 #endif//CPPBAZAARBOT_TRADER_H

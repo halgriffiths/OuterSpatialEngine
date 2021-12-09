@@ -14,13 +14,9 @@ public:
     int id;
     Agent(int agent_id) : id(agent_id) {};
 
-    virtual void ReceiveMessage(Message incoming_message) {
-        std::cout << "[Received] By " << std::to_string(id) << ": " << incoming_message.ToString() << std::endl;
-    }
+    virtual void ReceiveMessage(Message incoming_message) = 0;
+    virtual void SendMessage(Message& outgoing_message,  int recipient) = 0;
 
-    virtual void SendMessage(Message& outgoing_message, int recipient) {
-        std::cout << "[Sent    ] By" << std::to_string(id) << ": " << outgoing_message.ToString() << std::endl;
-    }
     virtual bool HasMoney(double quantity) {return false;};
     virtual bool HasCommodity(std::string commodity, int quantity) {return false;};
     virtual double TryTakeMoney(double quantity, bool atomic) {};
