@@ -119,14 +119,16 @@ public:
         // check no id clash
         auto requested_id = message.sender_id;
         if (requested_id == id) {
-            auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, false, "ID clash with auction house"));
-            SendDirect(*msg, request->trader_pointer);
+            auto msg = Message(id);
+            msg.AddRegisterResponse(RegisterResponse(id, false, "ID clash with auction house"));
+            SendDirect(msg, request->trader_pointer);
             return;
         }
 
         if (known_traders.find(requested_id) != known_traders.end()) {
-            auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, false, "ID clash with existing trader"));
-            SendDirect(*msg, request->trader_pointer);
+            auto msg = Message(id);
+            msg.AddRegisterResponse(RegisterResponse(id, false, "ID clash with existing trader"));
+            SendDirect(msg, request->trader_pointer);
             return;
         }
 
