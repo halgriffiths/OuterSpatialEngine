@@ -48,7 +48,9 @@ public:
         bid_book = {};
         ask_book = {};
     }
-
+    int NumKnownTraders() {
+        return known_traders.size();
+    }
     void RegisterCommodity(const Commodity& new_commodity) {
         if (known_commodities.find(new_commodity.name) != known_commodities.end()) {
             //already exists

@@ -8,7 +8,7 @@
 std::shared_ptr<BasicTrader> CreateAndRegister(int id,
                                                const std::vector<std::pair<Commodity, int>>& inv,
                                                const std::shared_ptr<AuctionHouse>& auction_house) {
-    auto trader = std::make_shared<BasicTrader>(id, auction_house, "test_class", 100.0, 50, inv, Log::DEBUG);
+    auto trader = std::make_shared<BasicTrader>(id, auction_house, "test_class", 100.0, 50, inv, Log::WARN);
 
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house);
     return trader;
@@ -17,14 +17,11 @@ std::shared_ptr<BasicTrader> CreateAndRegister(int id,
 // ------------- TESTS ------------
 
 void SimpleTradeTest() {
-
     auto comm = Commodity("comm");
     auto comm1 = Commodity("comm1");
-
     auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
     auction_house->RegisterCommodity(comm);
     auction_house->RegisterCommodity(comm1);
-
 
     std::vector<std::pair<Commodity, int>> c_v = {{comm, 5}, {comm1,9}};
     auto Alice = CreateAndRegister(1, c_v, auction_house);
@@ -47,7 +44,6 @@ void SimpleTradeTest() {
     Dan->SendMessage(*Message(4).AddBidOffer(std::move(bid)), auction_house);
 
     auction_house->Tick();
-    std::cout << "Done." << std::endl;
 
     // We expect as an outcome:
     //        1. Alice sells 3 to Charlie for $10 (0 unsold)
@@ -55,7 +51,7 @@ void SimpleTradeTest() {
     //        3. Charlie gets 4 for $10.5 avg (0 unbought)
     //        4. Dan gets nothing (1 unbought)
 
-    // Since they all start with $100 and 3 "comm", we can make assertions here:
+    // Since they all start with $100 and 5 "comm", we can make assertions here:
     std::optional<int> stored;
     stored = Alice->Query("comm");
     assert(stored);
@@ -72,10 +68,29 @@ void SimpleTradeTest() {
     stored = Dan->Query("comm");
     assert(stored);
     assert(*stored == 5);
+    std::cout << "SimpleTradeTest passed." << std::endl;
 }
 
+void InvalidRegistrationTest() {
+    auto comm = Commodity("comm");
+    auto comm1 = Commodity("comm1");
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
+    auction_house->RegisterCommodity(comm);
+    auction_house->RegisterCommodity(comm1);
+
+    std::vector<std::pair<Commodity, int>> c_v = {{comm, 5}, {comm1,9}};
+    auto Alice = CreateAndRegister(1, c_v, auction_house);
+    auto Bob = CreateAndRegister(1, c_v, auction_house);
+
+    auction_house->Tick();
+
+    assert(auction_house->NumKnownTraders() == 1);
+    std::cout << "InvalidRegistrationTest passed." << std::endl;
+}
 void RunAllTests() {
+    InvalidRegistrationTest();
     SimpleTradeTest();
+
 }
 
 
