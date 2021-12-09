@@ -14,15 +14,20 @@ class InventoryItem {
 public:
     InventoryItem() = default;
     InventoryItem(std::string commodity_name) : name(std::move(commodity_name)) {};
+    InventoryItem(Commodity commodity, int starting_quantity, int ideal)
+        : name(commodity.name)
+    , stored(starting_quantity)
+    , ideal_quantity(ideal)
+    , size(commodity.size) { };
 
-    InventoryItem(std::string commodity_name, int starting_quantity)
+    InventoryItem(std::string commodity_name, int starting_quantity, int ideal = 0)
         : name(std::move(commodity_name))
-        , stored(starting_quantity) {};
-
+        , stored(starting_quantity)
+        , ideal_quantity(ideal) {};
     std::string name = "default_commodity";
     int stored = 0;
-    int ideal_quantity= 0;
-    double original_cost = 0;
+    int ideal_quantity = 0;
+    double original_cost = 0.1;
     double size = 1;            //default to 1 unit of commodity per unit of inventory space
 };
 
@@ -50,7 +55,12 @@ public:
         inventory[name].ideal_quantity = ideal_quantity;
         return true;
     }
-
+    void SetCost(const std::string& name, double cost) {
+        if (inventory.count(name) != 1) {
+            return;// no entry found
+        }
+        inventory[name].original_cost = cost;
+    }
     //ignores space constraints - must be checked by trader
     void AddItem(const std::string& name, int quantity) {
         inventory[name].stored += quantity;

@@ -13,7 +13,6 @@ public:
            : name(commodity_name)
            , size(commodity_size) {};
     std::string name;
-
 };
 
 // extended form for Auction House, which also contains some trade data

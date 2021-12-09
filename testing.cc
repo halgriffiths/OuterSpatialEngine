@@ -14,23 +14,38 @@ int main(int argc, char **argv) {
 std::shared_ptr<BasicTrader> CreateAndRegisterBasic(int id,
                                                const std::vector<std::pair<Commodity, int>>& inv,
                                                const std::shared_ptr<AuctionHouse>& auction_house) {
-    auto trader = std::make_shared<BasicTrader>(id, auction_house, std::nullopt, "test_class", 100.0, 50, inv, Log::WARN);
+
+    std::vector<InventoryItem> inv_vector;
+    for (const auto &item : inv) {
+        inv_vector.emplace_back(item.first.name, item.second);
+    }
+    auto trader = std::make_shared<BasicTrader>(id, auction_house, std::nullopt, "test_class", 100.0, 50, inv_vector, Log::WARN);
 
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
     trader->Tick();
     return trader;
 }
+std::shared_ptr<BasicTrader> CreateAndRegister(int id,
+                                               const std::shared_ptr<AuctionHouse>& auction_house,
+                                               std::shared_ptr<Role> AI_logic,
+                                               const std::string& name,
+                                               double starting_money,
+                                               double inv_capacity,
+                                               const std::vector<InventoryItem>& inv,
+                                               Log::LogLevel log_level
+                                               ) {
 
-std::shared_ptr<BasicTrader> CreateAndRegisterFarmer(int id,
-                                                 const std::vector<std::pair<Commodity, int>>& inv,
-                                                 const std::shared_ptr<AuctionHouse>& auction_house) {
-    std::shared_ptr<Role> AI_logic;
-    AI_logic = std::make_shared<RoleFarmer>();
-    auto trader = std::make_shared<BasicTrader>(id, auction_house, AI_logic, "farmer", 100.0, 50, inv, Log::WARN);
-
+    auto trader = std::make_shared<BasicTrader>(id, auction_house, std::move(AI_logic), name, starting_money, inv_capacity, inv, log_level);
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
     trader->Tick();
     return trader;
+}
+std::shared_ptr<BasicTrader> CreateAndRegisterFarmer(int id,
+                                                 const std::vector<InventoryItem>& inv,
+                                                 const std::shared_ptr<AuctionHouse>& auction_house) {
+    std::shared_ptr<Role> AI_logic;
+    AI_logic = std::make_shared<RoleFarmer>();
+    return CreateAndRegister(id, auction_house, AI_logic, "farmer", 100.0, 50, inv, Log::WARN);
 }
 
 // ------------- TESTS ------------
@@ -40,9 +55,13 @@ TEST(RoleTests, ProduceFarmer) {
     auto food = Commodity("food");
     auto wood = Commodity("wood");
     auto tools = Commodity("tools");
-    auto FarmerWithWoodAndTools = CreateAndRegisterFarmer(1, {{food, 0}, {wood,5}, {tools,1}}, auction_house);
-    auto FarmerWithWoodNoTools = CreateAndRegisterFarmer(2, {{food, 0}, {wood,5}, {tools,0}}, auction_house);
-    auto FarmerNoWood = CreateAndRegisterFarmer(3, {{food, 0}, {wood,0}, {tools,1}}, auction_house);
+    std::vector<InventoryItem> WoodAndToolsInv {{food, 0, 10}, {wood, 5, 5}, {tools,1 , 1}};
+    std::vector<InventoryItem> WoodNoToolsInv {{food, 0, 10}, {wood, 5, 5}, {tools, 0, 1}};
+    std::vector<InventoryItem> NoWoodInv {{food, 0, 10}, {wood, 0, 5}, {tools, 1, 1}};
+
+    auto FarmerWithWoodAndTools = CreateAndRegisterFarmer(1,  WoodAndToolsInv, auction_house);
+    auto FarmerWithWoodNoTools = CreateAndRegisterFarmer(2, WoodNoToolsInv, auction_house);
+    auto FarmerNoWood = CreateAndRegisterFarmer(3, NoWoodInv, auction_house);
 
     auction_house->Tick();
     ASSERT_EQ(auction_house->NumKnownTraders(), 3);

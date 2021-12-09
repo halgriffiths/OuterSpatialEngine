@@ -28,7 +28,13 @@ public:
         if (log.count(name) > 0) {
             return;// already registered
         }
-        log[name] = {};
+        double starting_value = 1;
+        if (name == "metals") {
+            starting_value = 2;
+        } else if (name == "tools") {
+            starting_value = 3;
+        }
+        log[name] = {starting_value};
     }
 
     void add(std::string name, double amount) {

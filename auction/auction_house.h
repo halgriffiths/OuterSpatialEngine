@@ -47,7 +47,6 @@ public:
 
     // Messaging functions
     void ReceiveMessage(Message incoming_message) override {
-        logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
         inbox.push_back(incoming_message);
     }
     void SendMessage(Message& outgoing_message, int recipient) override {
@@ -76,6 +75,7 @@ public:
         logger.Log(Log::DEBUG, "Flushing inbox");
         while (!inbox.empty()) {
             auto& incoming_message = inbox.back();
+            logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
             if (incoming_message.GetType() == Msg::EMPTY) {
                 //no-op
             } else if (incoming_message.GetType() == Msg::BID_OFFER) {

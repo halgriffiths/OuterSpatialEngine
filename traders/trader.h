@@ -71,24 +71,24 @@ public:
     double track_costs;
 
 public:
-    BasicTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, std::string class_name, double starting_money, double inv_capacity, const std::vector<std::pair<Commodity, int>> &starting_inv, Log::LogLevel log_level = Log::WARN)
+    BasicTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, std::string class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
     : Agent(id)
     , auction_house(std::move(auction_house_ptr))
     , logic(std::move(AI_logic))
     , class_name(class_name)
     , money(starting_money)
     , logger(ConsoleLogger(class_name+std::to_string(id), log_level)){
+        double base_price = 2.0;
         //construct inv
-        std::vector<InventoryItem> inv_vector;
+        _inventory = Inventory(inv_capacity, starting_inv);
         for (const auto &item : starting_inv) {
-            inv_vector.emplace_back(item.first.name, item.second);
-            _observedTradingRange[item.first.name] = {};
+            _observedTradingRange[item.name] = {base_price, base_price*3};
+            _inventory.SetCost(item.name, auction_house.lock()->AverageHistoricalPrice(item.name, external_lookback));
         }
-        _inventory = Inventory(inv_capacity, inv_vector);
+
 
         track_costs = 0;
     }
-
     // Messaging functions
     void ReceiveMessage(Message incoming_message) override;
 
@@ -132,7 +132,6 @@ public:
     void Destroy();
     void Tick();
 };
-
 
 void BasicTrader::ReceiveMessage(Message incoming_message) {
     logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
@@ -368,9 +367,14 @@ void BasicTrader::Destroy() {
     auction_house.reset();
 }
 void BasicTrader::Tick() {
+    money_last_round = money;
     FlushInbox();
     if (logic) {
+        logger.Log(Log::DEBUG, "Ticking internal logic");
         (*logic)->TickRole(*this);
+    }
+    for (const auto& commodity : _inventory.inventory) {
+        GenerateOffers(commodity.first);
     }
     FlushOutbox();
     ticks++;
