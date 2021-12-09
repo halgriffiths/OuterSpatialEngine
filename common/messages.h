@@ -11,7 +11,7 @@
 #include <memory>
 
 class Agent;
-class BasicTrader;
+
 namespace Msg {
     enum MessageType {
         EMPTY,
@@ -32,9 +32,8 @@ struct EmptyMessage {
 };
 struct RegisterRequest {
     int sender_id;
-    std::shared_ptr<BasicTrader> trader_pointer;
-
-    RegisterRequest(int sender_id, std::shared_ptr<BasicTrader> new_trader)
+    std::shared_ptr<Agent> trader_pointer;
+    RegisterRequest(int sender_id, std::shared_ptr<Agent> new_trader)
             : sender_id(sender_id)
             , trader_pointer(new_trader) {};
 

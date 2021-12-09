@@ -16,7 +16,9 @@
 #include "../traders/inventory.h"
 #include "../common/commodity.h"
 
-#include "../traders/trader.h"
+class BasicTrader;
+
+
 
 #include "../metrics/metrics.h"
 
@@ -251,7 +253,7 @@ public:
     void SendMessage(Message& outgoing_message, int recipient) override {
         outbox.emplace_back(recipient,std::move(outgoing_message));
     }
-    void SendDirect(Message outgoing_message, const std::shared_ptr<Agent>& recipient) {
+    void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
         logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
         logger.LogSent(recipient->id, Log::INFO, outgoing_message.ToString());
         recipient->ReceiveMessage(std::move(outgoing_message));
@@ -328,22 +330,14 @@ public:
             return;
         }
 
-        // check all requested commodities are known to auction house
-        for (const auto& requested_item : request->trader_pointer->_inventory.inventory) {
-            if (known_commodities.find(requested_item.first) == known_commodities.end()) {
-                //if unknown commodity
-                auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, false, "Requested unknown commodity: " + requested_item.first));
-                SendDirect(*msg, request->trader_pointer);
-                return;
-            }
-        }
-
         // Otherwise, OK the request and register
         known_traders[requested_id] = request->trader_pointer;
         auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
         SendMessage(*msg, requested_id);
     }
-
+    double AverageHistoricalPrice(std::string commodity, int window) {
+        return history.prices.average(commodity, window);
+    }
     int NumKnownTraders() {
         return known_traders.size();
     }

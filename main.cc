@@ -95,12 +95,13 @@ void InvalidRegistrationTest() {
     assert(auction_house->NumKnownTraders() == 1);
     std::cout << "InvalidRegistrationTest passed." << std::endl;
 }
+
 void RunAllTests() {
     SimpleTradeTest();
     InvalidRegistrationTest();
 }
 
-
+// ---------------- MAIN ----------
 int main() {
     RunAllTests();
 

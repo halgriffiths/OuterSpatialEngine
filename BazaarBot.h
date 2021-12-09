@@ -9,7 +9,6 @@
 #include "common/agent.h"
 
 #include "traders/trader.h"
-#include "traders/roles.h"
 #include "auction/auction_house.h"
 #include "common/messages.h"
 

@@ -60,11 +60,18 @@ public:
         inventory[name].stored -= quantity;
     }
 
-    std::optional<int> Query(const std::string& name) {
+    int Query(const std::string& name) {
         if (inventory.count(name) != 1) {
-            return std::nullopt;; // no entry found
+            return 0; // no entry found
         }
         return inventory[name].stored;
+    }
+
+    double QueryCost(const std::string& name) {
+        if (inventory.count(name) != 1) {
+            return 0;; // no entry found
+        }
+        return inventory[name].original_cost;
     }
 
     std::optional<InventoryItem> GetItem(const std::string& name) {
@@ -112,30 +119,36 @@ public:
         return item_entry->original_cost;//return current unit cost
     }
 
-    double surplus(const std::string& name) {
+    int Surplus(const std::string& name) {
         auto stored = Query(name);
         if (!stored) {
             return 0;
         }
 
         int target = inventory[name].ideal_quantity;
-        if (*stored > target) {
-            return *stored - target;
+        if (stored > target) {
+            return stored - target;
         }
         return 0;
     }
 
-    double shortage(const std::string& name) {
+    int Shortage(const std::string& name) {
         auto stored = Query(name);
         if (!stored) {
             return 0;
         }
 
         int target = inventory[name].ideal_quantity;
-        if (*stored < target) {
-            return target - *stored;
+        if (stored < target) {
+            return target - stored;
         }
         return 0;
+    }
+    double GetSize(std::string commodity) {
+        if (inventory.count(commodity) != 1) {
+            return 0;// no entry found
+        };
+        return inventory[commodity].size;
     }
 };
 #endif//CPPBAZAARBOT_INVENTORY_H
