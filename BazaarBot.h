@@ -11,7 +11,6 @@
 #include "traders/trader.h"
 #include "auction/auction_house.h"
 #include "common/messages.h"
-
 #include "metrics/metrics.h"
 
 #endif //BAZAAR_BOT_H

@@ -11,29 +11,66 @@ int main(int argc, char **argv) {
 }
 
 // test driver for BazaarBot library
-std::shared_ptr<BasicTrader> CreateAndRegister(int id,
+std::shared_ptr<BasicTrader> CreateAndRegisterBasic(int id,
                                                const std::vector<std::pair<Commodity, int>>& inv,
                                                const std::shared_ptr<AuctionHouse>& auction_house) {
-    auto trader = std::make_shared<BasicTrader>(id, auction_house, "test_class", 100.0, 50, inv, Log::WARN);
+    auto trader = std::make_shared<BasicTrader>(id, auction_house, std::nullopt, "test_class", 100.0, 50, inv, Log::WARN);
 
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
+    trader->Tick();
+    return trader;
+}
+
+std::shared_ptr<BasicTrader> CreateAndRegisterFarmer(int id,
+                                                 const std::vector<std::pair<Commodity, int>>& inv,
+                                                 const std::shared_ptr<AuctionHouse>& auction_house) {
+    std::shared_ptr<Role> AI_logic;
+    AI_logic = std::make_shared<RoleFarmer>();
+    auto trader = std::make_shared<BasicTrader>(id, auction_house, AI_logic, "farmer", 100.0, 50, inv, Log::WARN);
+
+    trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
+    trader->Tick();
     return trader;
 }
 
 // ------------- TESTS ------------
+TEST(RoleTests, ProduceFarmer) {
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::ERROR);
+    
+    auto food = Commodity("food");
+    auto wood = Commodity("wood");
+    auto tools = Commodity("tools");
+    auto FarmerWithWoodAndTools = CreateAndRegisterFarmer(1, {{food, 0}, {wood,5}, {tools,1}}, auction_house);
+    auto FarmerWithWoodNoTools = CreateAndRegisterFarmer(2, {{food, 0}, {wood,5}, {tools,0}}, auction_house);
+    auto FarmerNoWood = CreateAndRegisterFarmer(3, {{food, 0}, {wood,0}, {tools,1}}, auction_house);
+
+    auction_house->Tick();
+    ASSERT_EQ(auction_house->NumKnownTraders(), 3);
+
+    // Guy with wood and tools makes 6 food
+    ASSERT_EQ(FarmerWithWoodAndTools->Query("food"), 6);
+    // Guy with wood but no tools makes 3 food
+    ASSERT_EQ(FarmerWithWoodNoTools->Query("food"), 3);
+    // Guy with no wood makes no food
+    ASSERT_EQ(FarmerNoWood->Query("food"), 0);
+}
 
 TEST(BasicTests, SimpleTradeTest) {
+    
     auto comm = Commodity("comm");
     auto comm1 = Commodity("comm1");
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::ERROR);
     auction_house->RegisterCommodity(comm);
     auction_house->RegisterCommodity(comm1);
 
     std::vector<std::pair<Commodity, int>> c_v = {{comm, 5}, {comm1,9}};
-    auto Alice = CreateAndRegister(1, c_v, auction_house);
-    auto Bob = CreateAndRegister(2, c_v, auction_house);
-    auto Charlie = CreateAndRegister(3, c_v, auction_house);
-    auto Dan =  CreateAndRegister(4, c_v, auction_house);
+    auto Alice = CreateAndRegisterBasic(1, c_v, auction_house);
+    auto Bob = CreateAndRegisterBasic(2, c_v, auction_house);
+    auto Charlie = CreateAndRegisterBasic(3, c_v, auction_house);
+    auto Dan =  CreateAndRegisterBasic(4, c_v, auction_house);
+
+    auction_house->Tick();
+    ASSERT_EQ(auction_house->NumKnownTraders(), 4);
 
     // Alice sells 3 for $10
     AskOffer ask = {1, "comm", 3, 10};
@@ -63,34 +100,25 @@ TEST(BasicTests, SimpleTradeTest) {
     //        4. Dan gets nothing (1 unbought)
 
     // Since they all start with $100 and 5 "comm", we can make assertions here:
-    std::optional<int> stored;
-    stored = Alice->Query("comm");
-    ASSERT_TRUE(stored);
-    ASSERT_EQ(*stored, 2);
+    ASSERT_EQ(Alice->Query("comm"), 2);
 
-    stored = Bob->Query("comm");
-    ASSERT_TRUE(stored);
-    ASSERT_EQ(*stored, 4);
+    ASSERT_EQ(Bob->Query("comm"), 4);
 
-    stored = Charlie->Query("comm");
-    ASSERT_TRUE(stored);
-    ASSERT_EQ(*stored, 9);
+    ASSERT_EQ(Charlie->Query("comm"), 9);
 
-    stored = Dan->Query("comm");
-    ASSERT_TRUE(stored);
-    ASSERT_EQ(*stored, 5);
+    ASSERT_EQ(Dan->Query("comm"), 5);
 }
 
 TEST(BasicTests, InvalidRegistrationTest) {
     auto comm = Commodity("comm");
     auto comm1 = Commodity("comm1");
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::ERROR);
     auction_house->RegisterCommodity(comm);
     auction_house->RegisterCommodity(comm1);
 
     std::vector<std::pair<Commodity, int>> c_v = {{comm, 5}, {comm1,9}};
-    auto Alice = CreateAndRegister(1, c_v, auction_house);
-    auto Bob = CreateAndRegister(1, c_v, auction_house);
+    auto Alice = CreateAndRegisterBasic(1, c_v, auction_house);
+    auto Bob = CreateAndRegisterBasic(1, c_v, auction_house);
 
     Alice->Tick();
     Bob->Tick();
