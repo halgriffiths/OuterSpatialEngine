@@ -23,6 +23,8 @@ class BasicTrader;
 #include "../metrics/metrics.h"
 
 class AuctionHouse : public Agent {
+public:
+    History history;
 
 private:
     int ticks = 0;
@@ -30,15 +32,133 @@ private:
     std::map<std::string, Commodity> known_commodities;
     std::map<int, std::shared_ptr<Agent>> known_traders;  //key = trader-id
 
-    std::map<std::string, std::vector<BidOffer>> bid_book;
-    std::map<std::string, std::vector<AskOffer>> ask_book;
+    std::map<std::string, std::vector<BidOffer>> bid_book = {};
+    std::map<std::string, std::vector<AskOffer>> ask_book = {};
 
-    std::vector<Message> inbox;
-    std::vector<std::pair<int, Message>> outbox; //Message, recipient_id
+    std::vector<Message> inbox = {};
+    std::vector<std::pair<int, Message>> outbox = {}; //Message, recipient_id
     ConsoleLogger logger;
-public:
-    History history;
 
+public:
+    AuctionHouse(int auction_house_id, Log::LogLevel verbosity)
+        : Agent(auction_house_id)
+        , logger(ConsoleLogger(std::string("AH")+std::to_string(id), verbosity)) {
+    }
+
+    // Messaging functions
+    void ReceiveMessage(Message incoming_message) override {
+        logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
+        inbox.push_back(incoming_message);
+    }
+    void SendMessage(Message& outgoing_message, int recipient) override {
+        outbox.emplace_back(recipient,std::move(outgoing_message));
+    }
+    void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
+        logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
+        logger.LogSent(recipient->id, Log::INFO, outgoing_message.ToString());
+        recipient->ReceiveMessage(std::move(outgoing_message));
+    }
+    void FlushOutbox() {
+        logger.Log(Log::DEBUG, "Flushing outbox");
+        while (!outbox.empty()) {
+            auto& outgoing = outbox.back();
+            outbox.pop_back();
+            if (known_traders.find(outgoing.first) == known_traders.end()) {
+                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
+                continue;
+            }
+            logger.LogSent(outgoing.first, Log::DEBUG, outgoing.second.ToString());
+            known_traders[outgoing.first]->ReceiveMessage(std::move(outgoing.second));
+        }
+        logger.Log(Log::DEBUG, "Flush finished");
+    }
+    void FlushInbox() {
+        logger.Log(Log::DEBUG, "Flushing inbox");
+        while (!inbox.empty()) {
+            auto& incoming_message = inbox.back();
+            if (incoming_message.GetType() == Msg::EMPTY) {
+                //no-op
+            } else if (incoming_message.GetType() == Msg::BID_OFFER) {
+                ProcessBid(incoming_message);
+            } else if (incoming_message.GetType() == Msg::ASK_OFFER) {
+                ProcessAsk(incoming_message);
+            } else if (incoming_message.GetType() == Msg::REGISTER_REQUEST) {
+                ProcessRegistrationRequest(incoming_message);
+            } else {
+                std::cout << "Unknown/unsupported message type " << incoming_message.GetType() << std::endl;
+            }
+            inbox.pop_back();
+        }
+        logger.Log(Log::DEBUG, "Flush finished");
+    }
+
+    // Message processing
+    void ProcessBid(Message& message) {
+        auto bid = message.bid_offer;
+        if (!bid) {
+            logger.Log(Log::ERROR, "Malformed bid_offer message");
+            return; //drop
+        }
+        bid_book[bid->commodity].push_back(*bid);
+    }
+    void ProcessAsk(Message& message) {
+        auto ask = message.ask_offer;
+        if (!ask) {
+            logger.Log(Log::ERROR, "Malformed ask_offer message");
+            return; //drop
+        }
+        ask_book[ask->commodity].push_back(*ask);
+    }
+    void ProcessRegistrationRequest(Message& message) {
+        auto request = message.register_request;
+        if (!request) {
+            logger.Log(Log::ERROR, "Malformed register_request message");
+            return; //drop
+        }
+
+        // check no id clash
+        auto requested_id = message.sender_id;
+        if (requested_id == id) {
+            auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, false, "ID clash with auction house"));
+            SendDirect(*msg, request->trader_pointer);
+            return;
+        }
+
+        if (known_traders.find(requested_id) != known_traders.end()) {
+            auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, false, "ID clash with existing trader"));
+            SendDirect(*msg, request->trader_pointer);
+            return;
+        }
+
+        // Otherwise, OK the request and register
+        known_traders[requested_id] = request->trader_pointer;
+        auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
+        SendMessage(*msg, requested_id);
+    }
+    double AverageHistoricalPrice(std::string commodity, int window) {
+        return history.prices.average(commodity, window);
+    }
+    int NumKnownTraders() {
+        return known_traders.size();
+    }
+    void RegisterCommodity(const Commodity& new_commodity) {
+        if (known_commodities.find(new_commodity.name) != known_commodities.end()) {
+            //already exists
+            return;
+        }
+        history.initialise(new_commodity.name);
+        known_commodities[new_commodity.name] = new_commodity;
+
+    }
+
+    void Tick() {
+        FlushInbox();
+        for (const auto& item : known_commodities) {
+            ResolveOffers(item.first);
+        }
+        FlushOutbox();
+        ticks++;
+    }
 private:
     // Transaction functions
     bool CheckBidStake(BidOffer& offer) {
@@ -231,134 +351,6 @@ private:
         }
     }
 
-public:
-    AuctionHouse(int auction_house_id, Log::LogLevel verbosity)
-        : Agent(auction_house_id)
-        , logger(ConsoleLogger(std::string("AH")+std::to_string(id), verbosity)) {
-
-        history = {};
-
-        known_commodities = {};
-        known_traders = {};
-
-        bid_book = {};
-        ask_book = {};
-    }
-
-    // Messaging functions
-    void ReceiveMessage(Message incoming_message) override {
-        logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
-        inbox.push_back(incoming_message);
-    }
-    void SendMessage(Message& outgoing_message, int recipient) override {
-        outbox.emplace_back(recipient,std::move(outgoing_message));
-    }
-    void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
-        logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
-        logger.LogSent(recipient->id, Log::INFO, outgoing_message.ToString());
-        recipient->ReceiveMessage(std::move(outgoing_message));
-    }
-    void FlushOutbox() {
-        logger.Log(Log::DEBUG, "Flushing outbox");
-        while (!outbox.empty()) {
-            auto& outgoing = outbox.back();
-            outbox.pop_back();
-            if (known_traders.find(outgoing.first) == known_traders.end()) {
-                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
-                continue;
-            }
-            logger.LogSent(outgoing.first, Log::DEBUG, outgoing.second.ToString());
-            known_traders[outgoing.first]->ReceiveMessage(std::move(outgoing.second));
-        }
-        logger.Log(Log::DEBUG, "Flush finished");
-    }
-    void FlushInbox() {
-        logger.Log(Log::DEBUG, "Flushing inbox");
-        while (!inbox.empty()) {
-            auto& incoming_message = inbox.back();
-            if (incoming_message.GetType() == Msg::EMPTY) {
-                //no-op
-            } else if (incoming_message.GetType() == Msg::BID_OFFER) {
-                ProcessBid(incoming_message);
-            } else if (incoming_message.GetType() == Msg::ASK_OFFER) {
-                ProcessAsk(incoming_message);
-            } else if (incoming_message.GetType() == Msg::REGISTER_REQUEST) {
-                ProcessRegistrationRequest(incoming_message);
-            } else {
-                std::cout << "Unknown/unsupported message type " << incoming_message.GetType() << std::endl;
-            }
-            inbox.pop_back();
-        }
-        logger.Log(Log::DEBUG, "Flush finished");
-    }
-
-    // Message processing
-    void ProcessBid(Message& message) {
-        auto bid = message.bid_offer;
-        if (!bid) {
-            logger.Log(Log::ERROR, "Malformed bid_offer message");
-            return; //drop
-        }
-        bid_book[bid->commodity].push_back(*bid);
-    }
-    void ProcessAsk(Message& message) {
-        auto ask = message.ask_offer;
-        if (!ask) {
-            logger.Log(Log::ERROR, "Malformed ask_offer message");
-            return; //drop
-        }
-        ask_book[ask->commodity].push_back(*ask);
-    }
-    void ProcessRegistrationRequest(Message& message) {
-        auto request = message.register_request;
-        if (!request) {
-            logger.Log(Log::ERROR, "Malformed register_request message");
-            return; //drop
-        }
-
-        // check no id clash
-        auto requested_id = message.sender_id;
-        if (requested_id == id) {
-            auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, false, "ID clash with auction house"));
-            SendDirect(*msg, request->trader_pointer);
-            return;
-        }
-
-        if (known_traders.find(requested_id) != known_traders.end()) {
-            auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, false, "ID clash with existing trader"));
-            SendDirect(*msg, request->trader_pointer);
-            return;
-        }
-
-        // Otherwise, OK the request and register
-        known_traders[requested_id] = request->trader_pointer;
-        auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
-        SendMessage(*msg, requested_id);
-    }
-    double AverageHistoricalPrice(std::string commodity, int window) {
-        return history.prices.average(commodity, window);
-    }
-    int NumKnownTraders() {
-        return known_traders.size();
-    }
-    void RegisterCommodity(const Commodity& new_commodity) {
-        if (known_commodities.find(new_commodity.name) != known_commodities.end()) {
-            //already exists
-            return;
-        }
-        history.initialise(new_commodity.name);
-        known_commodities[new_commodity.name] = new_commodity;
-
-    }
-
-    void Tick() {
-        FlushInbox();
-        for (const auto& item : known_commodities) {
-            ResolveOffers(item.first);
-        }
-        FlushOutbox();
-        ticks++;
-    }
 };
 
 #endif//CPPBAZAARBOT_AUCTION_HOUSE_H

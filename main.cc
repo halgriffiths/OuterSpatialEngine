@@ -2,8 +2,9 @@
 // Created by henry on 06/12/2021.
 //
 #include <iostream>
+#include <cassert>
 #include "BazaarBot.h"
-#include <assert.h>
+
 // test driver for BazaarBot library
 std::shared_ptr<BasicTrader> CreateAndRegister(int id,
                                                const std::vector<std::pair<Commodity, int>>& inv,
@@ -97,6 +98,9 @@ void InvalidRegistrationTest() {
 }
 
 void RunAllTests() {
+    InvalidRegistrationTest();
+    InvalidRegistrationTest();
+    InvalidRegistrationTest();
     SimpleTradeTest();
     InvalidRegistrationTest();
 }
