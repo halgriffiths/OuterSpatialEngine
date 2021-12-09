@@ -2,34 +2,9 @@
 // Created by henry on 06/12/2021.
 //
 #include <iostream>
-#include <cassert>
 #include "BazaarBot.h"
-std::shared_ptr<BasicTrader> CreateAndRegister(int id,
-                                               const std::shared_ptr<AuctionHouse>& auction_house,
-                                               std::shared_ptr<Role> AI_logic,
-                                               const std::string& name,
-                                               double starting_money,
-                                               double inv_capacity,
-                                               const std::vector<InventoryItem>& inv,
-                                               Log::LogLevel log_level
-) {
 
-    auto trader = std::make_shared<BasicTrader>(id, auction_house, std::move(AI_logic), name, starting_money, inv_capacity, inv, log_level);
-    trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
-    trader->Tick();
-    return trader;
-}
-std::shared_ptr<BasicTrader> CreateAndRegisterFarmer(int id,
-                                                     const std::vector<InventoryItem>& inv,
-                                                     const std::shared_ptr<AuctionHouse>& auction_house) {
-    std::shared_ptr<Role> AI_logic;
-    AI_logic = std::make_shared<RoleFarmer>();
-    return CreateAndRegister(id, auction_house, AI_logic, "farmer", 100.0, 50, inv, Log::WARN);
-}
-
-
-// ---------------- MAIN ----------
-int main() {
+void scrap() {
     auto food = Commodity("food");
     auto wood = Commodity("wood");
     auto tools = Commodity("tools");
@@ -48,8 +23,11 @@ int main() {
     auto FarmerNoWood = CreateAndRegisterFarmer(3, NoWoodInv, auction_house);
 
     std::vector<InventoryItem> LoadsOfWoodInv {{wood, 25, 5}};
-    auto FarmerLoadsWood = CreateAndRegisterFarmer(4, LoadsOfWoodInv, auction_house);
+    auto WoodcutterLoadsWood = CreateAndRegister(4, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 100.0, 50, LoadsOfWoodInv, Log::DEBUG);
 
     auction_house->Tick();
-
+}
+// ---------------- MAIN ----------
+int main() {
+    scrap();
 }

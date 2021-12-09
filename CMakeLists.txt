@@ -1,15 +1,38 @@
 cmake_minimum_required(VERSION 3.19)
-project(CppBazaarBot)
 set(CMAKE_CXX_STANDARD 20)
 
+
 ############# LIBRARY ############
+project(CppBazaarBot)
 add_library(bazaarbot BazaarBot.h traders/trader.h common/agent.h common/messages.h auction/auction_house.h metrics/metrics.h traders/inventory.h common/commodity.h common/history.h)
 set_target_properties(bazaarbot PROPERTIES LINKER_LANGUAGE CXX)
 
 ############# DRIVER ############
+
+# GNUPLOT stuff
+find_package(Boost REQUIRED COMPONENTS
+        iostreams system filesystem
+        )
+
+# Target.
+add_library(gnuplot_iostream INTERFACE)
+target_include_directories(gnuplot_iostream INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
+        $<INSTALL_INTERFACE:>)
+target_link_libraries(gnuplot_iostream INTERFACE
+        Boost::iostreams
+        Boost::system
+        Boost::filesystem
+        )
+
 # Add main.cpp file of project root directory as source file
 set(SOURCE_FILES main.cc)
 add_executable(simple_example ${SOURCE_FILES})
+target_compile_features(simple_example PRIVATE cxx_std_17)
+target_link_libraries(simple_example PRIVATE
+        gnuplot_iostream
+        util
+        )
 
 ############# TESTS #############
 # Locate GTest

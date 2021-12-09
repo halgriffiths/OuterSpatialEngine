@@ -78,12 +78,12 @@ public:
     , class_name(class_name)
     , money(starting_money)
     , logger(ConsoleLogger(class_name+std::to_string(id), log_level)){
-        double base_price = 2.0;
         //construct inv
         _inventory = Inventory(inv_capacity, starting_inv);
         for (const auto &item : starting_inv) {
+            double base_price = auction_house.lock()->AverageHistoricalPrice(item.name, external_lookback);
             _observedTradingRange[item.name] = {base_price, base_price*3};
-            _inventory.SetCost(item.name, auction_house.lock()->AverageHistoricalPrice(item.name, external_lookback));
+            _inventory.SetCost(item.name, base_price);
         }
 
 
