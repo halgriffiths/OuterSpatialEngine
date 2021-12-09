@@ -18,9 +18,8 @@ public:
         std::cout << "[Received] By " << std::to_string(id) << ": " << incoming_message.ToString() << std::endl;
     }
 
-    virtual void SendMessage(Message& outgoing_message, std::shared_ptr<Agent> recipient) {
+    virtual void SendMessage(Message& outgoing_message, int recipient) {
         std::cout << "[Sent    ] By" << std::to_string(id) << ": " << outgoing_message.ToString() << std::endl;
-        recipient->ReceiveMessage(std::move(outgoing_message));
     }
     virtual bool HasMoney(double quantity) {return false;};
     virtual bool HasCommodity(std::string commodity, int quantity) {return false;};
