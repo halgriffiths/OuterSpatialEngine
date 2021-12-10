@@ -34,7 +34,7 @@ int main() {
 
     int max_id = 1;
     std::shared_ptr<BasicTrader> new_trader;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", 20.0, 20, DefaultFarmerInv, Log::WARN);
         all_traders.push_back(new_trader);
         max_id++;
