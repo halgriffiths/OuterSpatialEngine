@@ -149,6 +149,15 @@ public:
     double AverageHistoricalPrice(std::string commodity, int window) {
         return history.prices.average(commodity, window);
     }
+    double AverageHistoricalTrades(std::string commodity, int window) {
+        return history.trades.average(commodity, window);
+    }
+    double AverageHistoricalAsks(std::string commodity, int window) {
+        return history.asks.average(commodity, window);
+    }
+    double AverageHistoricalBids(std::string commodity, int window) {
+        return history.bids.average(commodity, window);
+    }
     int NumKnownTraders() {
         return known_traders.size();
     }

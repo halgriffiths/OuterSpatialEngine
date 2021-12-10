@@ -17,6 +17,11 @@ int main() {
     std::vector<std::pair<double, double>> avg_food_price, avg_food_trades, avg_food_asks, avg_food_bids;
     std::vector<std::pair<double, double>> avg_wood_price, avg_wood_trades, avg_wood_asks, avg_wood_bids;
 
+    avg_food_price.emplace_back(-0.1,0);
+    avg_food_trades.emplace_back(-0.1,0);
+    avg_food_asks.emplace_back(-0.1,0);
+    avg_food_bids.emplace_back(-0.1,0);
+
     // Setup scenario
     auto food = Commodity("food");
     auto wood = Commodity("wood");
@@ -49,8 +54,15 @@ int main() {
         std::cout << "\n ------ END OF TICK " << curr_tick << " -----\n";
 
         // collect metrics
-        avg_food_price.emplace_back(curr_tick, auction_house->AverageHistoricalPrice("food", 2));
-        avg_wood_price.emplace_back(curr_tick, auction_house->AverageHistoricalPrice("wood", 2));
+        avg_food_price.emplace_back(curr_tick, auction_house->AverageHistoricalPrice("food", 1));
+        avg_food_trades.emplace_back(curr_tick, auction_house->AverageHistoricalTrades("food", 1));
+        avg_food_asks.emplace_back(curr_tick, auction_house->AverageHistoricalAsks("food", 1));
+        avg_food_bids.emplace_back(curr_tick, auction_house->AverageHistoricalBids("food", 1));
+
+        avg_wood_price.emplace_back(curr_tick, auction_house->AverageHistoricalPrice("wood", 1));
+        avg_wood_trades.emplace_back(curr_tick, auction_house->AverageHistoricalTrades("wood", 1));
+        avg_wood_asks.emplace_back(curr_tick, auction_house->AverageHistoricalAsks("wood", 1));
+        avg_wood_bids.emplace_back(curr_tick, auction_house->AverageHistoricalBids("wood", 1));
     }
 
 
@@ -58,9 +70,17 @@ int main() {
 
     // Plot results
     Gnuplot gp;
-    gp << "set yrange [-0.1:2]\n";
+    gp << "set multiplot layout 1,2\n";
+    gp << "set title 'Prices'\n";
+    //gp << "set yrange [-0.1:2]\n";
     auto plots = gp.plotGroup();
     plots.add_plot1d(avg_food_price, "with lines title 'food'");
     plots.add_plot1d(avg_wood_price, "with lines title 'wood'");
+    gp << plots;
+
+    gp << "set title 'Num successful trades'\n";
+    plots = gp.plotGroup();
+    plots.add_plot1d(avg_food_trades, "with lines title 'food'");
+    plots.add_plot1d(avg_wood_trades, "with lines title 'wood'");
     gp << plots;
 }
