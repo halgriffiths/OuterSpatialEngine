@@ -114,6 +114,7 @@ public:
     int TryTakeCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
     int TryAddCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
 
+    int GetIdeal(const std::string& name) override;
     int Query(const std::string& name) override;
     double QueryCost(const std::string& name) override;
     double GetEmptySpace() override;
@@ -271,7 +272,13 @@ int BasicTrader::TryAddCommodity(std::string commodity, int quantity, std::optio
     _inventory.AddItem(commodity, actual_transferred, unit_price);
     return actual_transferred;
 }
-
+int BasicTrader::GetIdeal(const std::string& name) {
+    auto res = _inventory.GetItem(name);
+    if (!res) {
+        return 0;
+    }
+    return res->ideal_quantity;
+}
 int BasicTrader::Query(const std::string& name) { return _inventory.Query(name); }
 double BasicTrader::QueryCost(const std::string& name) { return _inventory.QueryCost(name); }
 double BasicTrader::GetEmptySpace() { return _inventory.GetEmptySpace(); }
@@ -299,6 +306,7 @@ void BasicTrader::UpdatePriceModelFromAsk(AskResult result) {
 void BasicTrader::GenerateOffers(std::string commodity) {
     int surplus = _inventory.Surplus(commodity);
     if (surplus >= 1) {
+        logger.Log(Log::DEBUG, "Considering ask for "+commodity);
         auto offer = CreateAsk(commodity, 1);
         if (offer.quantity > 0) {
             SendMessage(*Message(id).AddAskOffer(offer), auction_house.lock()->id);
@@ -313,6 +321,7 @@ void BasicTrader::GenerateOffers(std::string commodity) {
         int limit = (shortage*unit_size <= space) ? shortage : (int) space/shortage;
         if (limit > 0)
         {
+            logger.Log(Log::DEBUG, "Considering bid for "+commodity);
             auto offer = CreateBid(commodity, limit);
             if (offer.quantity > 0) {
                 SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
@@ -443,9 +452,10 @@ public:
     void TickRole(BasicTrader& trader) override {
         bool has_wood = (0 < trader.Query("wood"));
         bool has_tools = (0 < trader.Query("tools"));
-
-        if (!has_wood) {
-            LoseMoney(trader, 2);//$2 idleness fine
+        bool too_much_food = (3*trader.GetIdeal("food") < trader.Query("food"));
+        // Stop producing if you have way too many goods (3x ideal)
+        if (!has_wood || too_much_food ) {
+            //LoseMoney(trader, 2); //$2 idleness fine
             return;
         }
 
@@ -466,9 +476,10 @@ public:
     void TickRole(BasicTrader& trader) override {
         bool has_food = (0 < trader.Query("food"));
         bool has_tools = (0 < trader.Query("tools"));
-
-        if (!has_food) {
-            LoseMoney(trader, 2);//$2 idleness fine
+        bool too_much_wood = (3*trader.GetIdeal("wood") < trader.Query("wood"));
+        // Stop producing if you have way too many goods (3x ideal)
+        if (!has_food || too_much_wood) {
+            //LoseMoney(trader, 2);//$2 idleness fine
             return;
         }
 

@@ -24,6 +24,7 @@ public:
     virtual int TryAddCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
     virtual int TryTakeCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
 
+    virtual int GetIdeal(const std::string& name) { return 0; };
     virtual int Query(const std::string& name) { return 0; }
     virtual double QueryCost(const std::string& name) { return 0;}
     virtual double GetEmptySpace() { return 0; }

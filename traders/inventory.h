@@ -153,9 +153,6 @@ public:
 
     int Shortage(const std::string& name) {
         auto stored = Query(name);
-        if (!stored) {
-            return 0;
-        }
 
         int target = inventory[name].ideal_quantity;
         if (stored < target) {

@@ -14,7 +14,8 @@
 // ---------------- MAIN ----------
 int main() {
 
-    std::vector<std::pair<double, double>> avg_food_price, avg_wood_price;
+    std::vector<std::pair<double, double>> avg_food_price, avg_food_trades, avg_food_asks, avg_food_bids;
+    std::vector<std::pair<double, double>> avg_wood_price, avg_wood_trades, avg_wood_asks, avg_wood_bids;
 
     // Setup scenario
     auto food = Commodity("food");
@@ -34,16 +35,16 @@ int main() {
     auto FarmerWithWoodNoTools = CreateAndRegisterFarmer(2, WoodNoToolsInv, auction_house, 10.0);
     auto FarmerNoWood = CreateAndRegisterFarmer(3, NoWoodInv, auction_house, 10.0);
 
-    std::vector<InventoryItem> LoadsOfWoodInv {{wood, 25, 5}};
-    auto WoodcutterLoadsWood = CreateAndRegister(4, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 10.0, 50, LoadsOfWoodInv, Log::WARN);
-    auto WoodcutterLoadsWood2 = CreateAndRegister(5, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 10.0, 50, LoadsOfWoodInv, Log::WARN);
-
+    std::vector<InventoryItem> LoadsOfWoodInv {{wood, 10, 0}, {food, 0, 5}, {tools,1 , 1}};
+    auto WoodcutterNoFood = CreateAndRegister(4, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 10.0, 50, LoadsOfWoodInv, Log::WARN);
     for (int curr_tick = 0; curr_tick < 10; curr_tick++) {
         FarmerWithWoodAndTools->Tick();
         FarmerWithWoodNoTools->Tick();
         FarmerNoWood->Tick();
-        WoodcutterLoadsWood->Tick();
-        WoodcutterLoadsWood2->Tick();
+
+        WoodcutterNoFood->Tick();
+        //WoodcutterLoadsWood2->Tick();
+
         auction_house->Tick();
         std::cout << "\n ------ END OF TICK " << curr_tick << " -----\n";
 
