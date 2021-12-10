@@ -2,8 +2,8 @@
 // Created by henry on 06/12/2021.
 //
 
-#ifndef CPPBAZAARBOT_TRADER_H
-#define CPPBAZAARBOT_TRADER_H
+#ifndef CPPBAZAARBOT_AI_TRADER_H
+#define CPPBAZAARBOT_AI_TRADER_H
 
 #include <utility>
 
@@ -34,23 +34,20 @@ private:
 
 public:
     bool Random(double chance);
-    virtual void TickRole(BasicTrader& trader) = 0;
-    void Produce(BasicTrader& trader, std::string commodity, int amount, double chance = 1);
-    void Consume(BasicTrader& trader, std::string commodity, int amount, double chance = 1);
-    void LoseMoney(BasicTrader& trader, double amount);
+    virtual void TickRole(AITrader & trader) = 0;
+    void Produce(AITrader & trader, std::string commodity, int amount, double chance = 1);
+    void Consume(AITrader & trader, std::string commodity, int amount, double chance = 1);
+    void LoseMoney(AITrader & trader, double amount);
 };
 
 
-class BasicTrader : public Agent {
+class AITrader : public Trader {
 private:
     bool initialised = false;
 
     std::optional<std::shared_ptr<Role>> logic;
-    double MIN_PRICE = 0.01;
-    int ticks = 0;
-    friend AuctionHouse;
     Inventory _inventory;
-    // TODO Change this to an array to allow multiple auction houses to be traded with at once
+
     std::weak_ptr<AuctionHouse> auction_house;
 
     std::vector<Message> inbox;
@@ -74,8 +71,8 @@ public:
     ConsoleLogger logger;
 
 public:
-    BasicTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, std::string class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
-    : Agent(id)
+    AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, std::string class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
+    : Trader(id)
     , auction_house(std::move(auction_house_ptr))
     , logic(std::move(AI_logic))
     , class_name(class_name)
@@ -138,14 +135,14 @@ public:
     void Tick();
 };
 
-void BasicTrader::ReceiveMessage(Message incoming_message) {
+void AITrader::ReceiveMessage(Message incoming_message) {
     logger.LogReceived(incoming_message.sender_id, Log::DEBUG, incoming_message.ToString());
     inbox.push_back(incoming_message);
 }
-void BasicTrader::SendMessage(Message& outgoing_message, int recipient) {
+void AITrader::SendMessage(Message& outgoing_message, int recipient) {
     outbox.emplace_back(recipient, std::move(outgoing_message));
 }
-void BasicTrader::FlushOutbox() {
+void AITrader::FlushOutbox() {
         logger.Log(Log::DEBUG, "Flushing outbox");
         while (!outbox.empty()) {
             auto& outgoing = outbox.back();
@@ -160,7 +157,7 @@ void BasicTrader::FlushOutbox() {
         }
         logger.Log(Log::DEBUG, "Flush finished");
 }
-void BasicTrader::FlushInbox() {
+void AITrader::FlushInbox() {
     logger.Log(Log::DEBUG, "Flushing inbox");
     while (!inbox.empty()) {
         auto& incoming_message = inbox.back();
@@ -179,13 +176,13 @@ void BasicTrader::FlushInbox() {
     }
     logger.Log(Log::DEBUG, "Flush finished");
 }
-void BasicTrader::ProcessAskResult(Message& message) {
+void AITrader::ProcessAskResult(Message& message) {
     UpdatePriceModelFromAsk(*message.ask_result);
 }
-void BasicTrader::ProcessBidResult(Message& message) {
+void AITrader::ProcessBidResult(Message& message) {
     UpdatePriceModelFromBid(*message.bid_result);
 }
-void BasicTrader::ProcessRegistrationResponse(Message& message) {
+void AITrader::ProcessRegistrationResponse(Message& message) {
     if (message.register_response->accepted) {
         initialised = true;
         logger.Log(Log::INFO, "Successfully registered with auction house");
@@ -195,10 +192,10 @@ void BasicTrader::ProcessRegistrationResponse(Message& message) {
     }
 }
 
-bool BasicTrader::HasMoney(double quantity) {
+bool AITrader::HasMoney(double quantity) {
     return (money >= quantity);
 }
-double BasicTrader::TryTakeMoney(double quantity, bool atomic) {
+double AITrader::TryTakeMoney(double quantity, bool atomic) {
     double amount_transferred = 0;
     if (!atomic) {
         // Take what you can
@@ -214,20 +211,20 @@ double BasicTrader::TryTakeMoney(double quantity, bool atomic) {
     money -= amount_transferred;
     return amount_transferred;
 }
-void BasicTrader::ForceTakeMoney(double quantity) {
+void AITrader::ForceTakeMoney(double quantity) {
     logger.Log(Log::DEBUG, "Lost money: $" + std::to_string(quantity));
     money -= quantity;
 }
-void BasicTrader::AddMoney(double quantity) {
+void AITrader::AddMoney(double quantity) {
     logger.Log(Log::DEBUG, "Gained money: $" + std::to_string(quantity));
     money += quantity;
 }
 
-bool BasicTrader::HasCommodity(std::string commodity, int quantity) {
+bool AITrader::HasCommodity(std::string commodity, int quantity) {
     auto stored = _inventory.Query(commodity);
     return (stored >= quantity);
 }
-int BasicTrader::TryTakeCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {
+int AITrader::TryTakeCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {
     int actual_transferred = 0;
     auto comm = _inventory.GetItem(commodity);
     if (!comm) {
@@ -250,7 +247,7 @@ int BasicTrader::TryTakeCommodity(std::string commodity, int quantity, std::opti
     _inventory.TakeItem(commodity, actual_transferred, unit_price);
     return actual_transferred;
 }
-int BasicTrader::TryAddCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {
+int AITrader::TryAddCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {
     int actual_transferred = 0;
     auto comm = _inventory.GetItem(commodity);
     if (!comm) {
@@ -272,19 +269,19 @@ int BasicTrader::TryAddCommodity(std::string commodity, int quantity, std::optio
     _inventory.AddItem(commodity, actual_transferred, unit_price);
     return actual_transferred;
 }
-int BasicTrader::GetIdeal(const std::string& name) {
+int AITrader::GetIdeal(const std::string& name) {
     auto res = _inventory.GetItem(name);
     if (!res) {
         return 0;
     }
     return res->ideal_quantity;
 }
-int BasicTrader::Query(const std::string& name) { return _inventory.Query(name); }
-double BasicTrader::QueryCost(const std::string& name) { return _inventory.QueryCost(name); }
-double BasicTrader::GetEmptySpace() { return _inventory.GetEmptySpace(); }
+int AITrader::Query(const std::string& name) { return _inventory.Query(name); }
+double AITrader::QueryCost(const std::string& name) { return _inventory.QueryCost(name); }
+double AITrader::GetEmptySpace() { return _inventory.GetEmptySpace(); }
 
 // Trading functions
-void BasicTrader::UpdatePriceModelFromBid(BidResult& result) {
+void AITrader::UpdatePriceModelFromBid(BidResult& result) {
     for (int i = 0; i < result.quantity_traded; i++) {
         _observedTradingRange[result.commodity].push_back(result.avg_price);
     }
@@ -293,7 +290,7 @@ void BasicTrader::UpdatePriceModelFromBid(BidResult& result) {
         _observedTradingRange[result.commodity].erase(_observedTradingRange[result.commodity].begin());
     }
 };
-void BasicTrader::UpdatePriceModelFromAsk(AskResult result) {
+void AITrader::UpdatePriceModelFromAsk(AskResult result) {
     for (int i = 0; i < result.quantity_traded; i++) {
         _observedTradingRange[result.commodity].push_back(result.avg_price);
     }
@@ -303,7 +300,7 @@ void BasicTrader::UpdatePriceModelFromAsk(AskResult result) {
     }
 };
 
-void BasicTrader::GenerateOffers(std::string commodity) {
+void AITrader::GenerateOffers(std::string commodity) {
     int surplus = _inventory.Surplus(commodity);
     if (surplus >= 1) {
         logger.Log(Log::DEBUG, "Considering ask for "+commodity);
@@ -329,7 +326,7 @@ void BasicTrader::GenerateOffers(std::string commodity) {
         }
     }
 };
-BidOffer BasicTrader::CreateBid(std::string commodity, int max_limit) {
+BidOffer AITrader::CreateBid(std::string commodity, int max_limit) {
     //AI agents offer a fair bid price - 5% above recent average market value
     double bid_price = 1.05* (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
     int ideal = DetermineBuyQuantity(commodity);
@@ -339,7 +336,7 @@ BidOffer BasicTrader::CreateBid(std::string commodity, int max_limit) {
     //note that this could be a noop (quantity=0) at this point
     return BidOffer(id, commodity, quantity, bid_price);
 }
-AskOffer BasicTrader::CreateAsk(std::string commodity, int min_limit) {
+AskOffer AITrader::CreateAsk(std::string commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 2% profit
     double ask_price = _inventory.QueryCost(commodity) * 1.02;
 
@@ -349,7 +346,7 @@ AskOffer BasicTrader::CreateAsk(std::string commodity, int min_limit) {
     return AskOffer(id, commodity, quantity, ask_price);
 };
 
-int BasicTrader::DetermineBuyQuantity(std::string commodity) {
+int AITrader::DetermineBuyQuantity(std::string commodity) {
     double avg_price = auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback);
     std::pair<double, double> range = ObserveTradingRange(commodity, internal_lookback);
     if (range.first == 0 && range.second == 0) {
@@ -363,11 +360,11 @@ int BasicTrader::DetermineBuyQuantity(std::string commodity) {
 
     return (int) amount_to_buy;
 }
-int BasicTrader::DetermineSaleQuantity(std::string commodity) {
+int AITrader::DetermineSaleQuantity(std::string commodity) {
     return _inventory.Surplus(commodity); //Sell all surplus
 };
 
-std::pair<double, double> BasicTrader::ObserveTradingRange(std::string commodity, int window) {
+std::pair<double, double> AITrader::ObserveTradingRange(std::string commodity, int window) {
     if (_observedTradingRange.count(commodity) < 1 || _observedTradingRange[commodity].size() < 1) {
         return {0,0};
     }
@@ -382,9 +379,9 @@ std::pair<double, double> BasicTrader::ObserveTradingRange(std::string commodity
     return {min_observed, max_observed};
 };
 
-double BasicTrader::GetProfit() {return money - money_last_round;}
+double AITrader::GetProfit() {return money - money_last_round;}
 // Misc
-void BasicTrader::Destroy() {
+void AITrader::Destroy() {
     auto res = auction_house.lock();
     if (res) {
         res->ReceiveMessage(*Message(id).AddShutdownNotify({id}));
@@ -394,7 +391,7 @@ void BasicTrader::Destroy() {
     _inventory.inventory.clear();
     auction_house.reset();
 }
-void BasicTrader::Tick() {
+void AITrader::Tick() {
     money_last_round = money;
     FlushInbox();
     if (initialised) {
@@ -422,7 +419,7 @@ bool Role::Random(double chance) {
     if (chance >= 1) return true;
     return (rng_gen() < chance*rng_gen.max());
 }
-void Role::Produce(BasicTrader& trader, std::string commodity, int amount, double chance) {
+void Role::Produce(AITrader & trader, std::string commodity, int amount, double chance) {
     if (Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
 
@@ -431,25 +428,25 @@ void Role::Produce(BasicTrader& trader, std::string commodity, int amount, doubl
         trader.track_costs = 0;
     }
 }
-void Role::Consume(BasicTrader& trader, std::string commodity, int amount, double chance) {
+void Role::Consume(AITrader & trader, std::string commodity, int amount, double chance) {
     if (Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount));
         trader.TryTakeCommodity(commodity, amount, 0, false);
         trader.track_costs += amount*trader.QueryCost(commodity);
     }
 }
-void Role::LoseMoney(BasicTrader& trader, double amount) {
+void Role::LoseMoney(AITrader & trader, double amount) {
     trader.ForceTakeMoney(amount);
     trader.track_costs += amount;
 }
 
 class EmptyRole : public Role {
-    void TickRole(BasicTrader& trader) override {};
+    void TickRole(AITrader & trader) override {};
 };
 
 class RoleFarmer : public Role {
 public:
-    void TickRole(BasicTrader& trader) override {
+    void TickRole(AITrader & trader) override {
         bool has_wood = (0 < trader.Query("wood"));
         bool has_tools = (0 < trader.Query("tools"));
         bool too_much_food = (3*trader.GetIdeal("food") < trader.Query("food"));
@@ -472,7 +469,7 @@ public:
 
 class RoleWoodcutter : public Role {
 public:
-    void TickRole(BasicTrader& trader) override {
+    void TickRole(AITrader & trader) override {
         bool has_food = (0 < trader.Query("food"));
         bool has_tools = (0 < trader.Query("tools"));
         bool too_much_wood = (3*trader.GetIdeal("wood") < trader.Query("wood"));
@@ -494,4 +491,4 @@ public:
     }
 };
 
-#endif//CPPBAZAARBOT_TRADER_H
+#endif//CPPBAZAARBOT_AI_TRADER_H

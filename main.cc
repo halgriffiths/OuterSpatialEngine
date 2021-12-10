@@ -28,12 +28,12 @@ int main() {
     auction_house->RegisterCommodity(wood);
     auction_house->RegisterCommodity(tools);
 
-    std::vector<std::shared_ptr<BasicTrader>> all_traders;
+    std::vector<std::AITrader<AITrader>> all_traders;
     std::vector<InventoryItem> DefaultFarmerInv{{food, 0, 0}, {wood, 0, 3}, {tools, 1, 1}};
     std::vector<InventoryItem> DefaultWoodcutterInv{{food, 1, 3}, {wood, 0, 0}, {tools, 1, 1}};
 
     int max_id = 1;
-    std::shared_ptr<BasicTrader> new_trader;
+    std::shared_ptr<AITrader> new_trader;
     for (int i = 0; i < 3; i++) {
         new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", 20.0, 20, DefaultFarmerInv, Log::WARN);
         all_traders.push_back(new_trader);

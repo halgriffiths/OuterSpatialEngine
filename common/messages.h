@@ -10,7 +10,7 @@
 #include "../common/commodity.h"
 #include <memory>
 
-class Agent;
+class Trader;
 
 namespace Msg {
     enum MessageType {
@@ -33,8 +33,8 @@ struct EmptyMessage {
 };
 struct RegisterRequest {
     int sender_id;
-    std::weak_ptr<Agent> trader_pointer;
-    RegisterRequest(int sender_id, std::weak_ptr<Agent> new_trader)
+    std::weak_ptr<Trader> trader_pointer;
+    RegisterRequest(int sender_id, std::weak_ptr<Trader> new_trader)
             : sender_id(sender_id)
             , trader_pointer(new_trader) {};
 
