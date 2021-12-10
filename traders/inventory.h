@@ -62,11 +62,20 @@ public:
         inventory[name].original_cost = cost;
     }
     //ignores space constraints - must be checked by trader
-    void AddItem(const std::string& name, int quantity) {
+    void AddItem(const std::string& name, int quantity, std::optional<double> unit_price = std::nullopt) {
+        if (unit_price && *unit_price > 0) {
+            if (inventory[name].stored > 0) {
+                // update avg orig. cost
+                inventory[name].original_cost = (inventory[name].original_cost * inventory[name].stored + quantity*(*unit_price)) / (inventory[name].stored + quantity);
+
+            } else {
+                inventory[name].original_cost = *unit_price;
+            }
+        }
         inventory[name].stored += quantity;
     }
     //ignores space constraints - must be checked by trader
-    void TakeItem(const std::string& name, int quantity) {
+    void TakeItem(const std::string& name, int quantity, std::optional<double> unit_price = std::nullopt) {
         inventory[name].stored -= quantity;
     }
 

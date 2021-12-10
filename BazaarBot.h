@@ -45,10 +45,11 @@ std::shared_ptr<BasicTrader> CreateAndRegister(int id,
 }
 std::shared_ptr<BasicTrader> CreateAndRegisterFarmer(int id,
                                                      const std::vector<InventoryItem>& inv,
-                                                     const std::shared_ptr<AuctionHouse>& auction_house) {
+                                                     const std::shared_ptr<AuctionHouse>& auction_house,
+                                                     double starting_money=100.0) {
     std::shared_ptr<Role> AI_logic;
     AI_logic = std::make_shared<RoleFarmer>();
-    return CreateAndRegister(id, auction_house, AI_logic, "farmer", 100.0, 50, inv, Log::WARN);
+    return CreateAndRegister(id, auction_house, AI_logic, "farmer", starting_money, 50, inv, Log::WARN);
 }
 
 

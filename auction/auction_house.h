@@ -212,7 +212,7 @@ private:
     // 2 - buyer failed
     int MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double unit_price) {
         // take from seller
-        auto actual_quantity = known_traders[seller]->TryTakeCommodity(commodity, quantity, true);
+        auto actual_quantity = known_traders[seller]->TryTakeCommodity(commodity, quantity, 0, true);
         if (actual_quantity == 0) {
             // this may be unrecoverable, not sure
             logger.Log(Log::ERROR, "Seller lacks good! Aborting trade");
@@ -225,7 +225,7 @@ private:
             return 2;
         }
 
-        known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, false);
+        known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, unit_price, false);
         known_traders[buyer]->AddMoney(actual_quantity*unit_price);
         auto info_msg = std::string("Made trade: ") + std::to_string(seller) + std::string(" >>> ") + std::to_string(buyer) + std::string(" : ") + commodity + std::string(" x") + std::to_string(quantity) + std::string(" @ $") + std::to_string(unit_price);
         logger.Log(Log::INFO, info_msg);
@@ -310,7 +310,9 @@ private:
                 ask_result.UpdateWithTrade(quantity_traded, clearing_price);
 
                 // update per-tick metrics
+
                 avg_price_this_tick = (avg_price_this_tick*units_traded_this_tick + clearing_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
+
                 units_traded_this_tick += quantity_traded;
                 money_traded_this_tick += quantity_traded*clearing_price;
                 num_trades_this_tick += 1;
@@ -349,6 +351,7 @@ private:
         history.asks.add(commodity, supply);
         history.bids.add(commodity, demand);
         history.trades.add(commodity, num_trades_this_tick);
+
         if (units_traded_this_tick > 0) {
             history.prices.add(commodity, avg_price_this_tick);
         } else {

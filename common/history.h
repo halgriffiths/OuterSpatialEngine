@@ -54,7 +54,7 @@ public:
         }
 
         double total = 0;
-        for (int i = 0; i < range; i++) {
+        for (int i = log_length - range; i < log_length; i++) {
             total += log[name][i];
         }
         return total/range;

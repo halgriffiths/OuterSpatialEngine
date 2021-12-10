@@ -111,10 +111,11 @@ public:
     void AddMoney(double quantity) override;
 
     bool HasCommodity(std::string commodity, int quantity) override;
-    int TryTakeCommodity(std::string commodity, int quantity, bool atomic) override;
-    int TryAddCommodity(std::string commodity, int quantity, bool atomic) override;
+    int TryTakeCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
+    int TryAddCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
 
     int Query(const std::string& name) override;
+    double QueryCost(const std::string& name) override;
     double GetEmptySpace() override;
 
     // Trading functions
@@ -199,15 +200,15 @@ bool BasicTrader::HasMoney(double quantity) {
 double BasicTrader::TryTakeMoney(double quantity, bool atomic) {
     double amount_transferred = 0;
     if (!atomic) {
-    // Take what you can
-    amount_transferred = std::min(money, quantity);
+        // Take what you can
+        amount_transferred = std::min(money, quantity);
     } else {
-    if (money < quantity) {
-    logger.Log(Log::DEBUG, "Failed to take $"+std::to_string(quantity));
-    amount_transferred = 0;
-    } else {
-    amount_transferred = quantity;
-    }
+        if (money < quantity) {
+            logger.Log(Log::DEBUG, "Failed to take $"+std::to_string(quantity));
+            amount_transferred = 0;
+        } else {
+            amount_transferred = quantity;
+        }
     }
     money -= amount_transferred;
     return amount_transferred;
@@ -225,53 +226,54 @@ bool BasicTrader::HasCommodity(std::string commodity, int quantity) {
     auto stored = _inventory.Query(commodity);
     return (stored >= quantity);
 }
-int BasicTrader::TryTakeCommodity(std::string commodity, int quantity, bool atomic) {
+int BasicTrader::TryTakeCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {
     int actual_transferred = 0;
     auto comm = _inventory.GetItem(commodity);
     if (!comm) {
-    //item unknown, fail
-    logger.Log(Log::ERROR, "Tried to take unknown item "+commodity);
-    return 0;
+        //item unknown, fail
+        logger.Log(Log::ERROR, "Tried to take unknown item "+commodity);
+        return 0;
     }
 
     auto stored = _inventory.Query(commodity);
     if ( stored>= quantity) {
-    actual_transferred = quantity;
+        actual_transferred = quantity;
     } else {
-    if (atomic) {
-    actual_transferred = 0;
-    logger.Log(Log::DEBUG, "Failed to take "+commodity+std::string(" x") + std::to_string(quantity));
-    } else {
-    actual_transferred = stored;
+        if (atomic) {
+            actual_transferred = 0;
+            logger.Log(Log::DEBUG, "Failed to take "+commodity+std::string(" x") + std::to_string(quantity));
+        } else {
+            actual_transferred = stored;
+        }
     }
-    }
-    _inventory.TakeItem(commodity, actual_transferred);
+    _inventory.TakeItem(commodity, actual_transferred, unit_price);
     return actual_transferred;
 }
-int BasicTrader::TryAddCommodity(std::string commodity, int quantity, bool atomic) {
+int BasicTrader::TryAddCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {
     int actual_transferred = 0;
     auto comm = _inventory.GetItem(commodity);
     if (!comm) {
-    //item unknown, fail
-    logger.Log(Log::ERROR, "Tried to add unknown item "+commodity);
-    return 0;
+        //item unknown, fail
+        logger.Log(Log::ERROR, "Tried to add unknown item "+commodity);
+        return 0;
     }
 
     if (_inventory.GetEmptySpace() >= quantity*comm->size) {
-    actual_transferred = quantity;
+        actual_transferred = quantity;
     } else {
-    if (atomic) {
-    actual_transferred = 0;
-    logger.Log(Log::DEBUG, "Failed to add "+commodity+std::string(" x") + std::to_string(quantity));
-    } else {
-    actual_transferred = (int) (_inventory.GetEmptySpace()/comm->size);
+        if (atomic) {
+            actual_transferred = 0;
+            logger.Log(Log::DEBUG, "Failed to add "+commodity+std::string(" x") + std::to_string(quantity));
+        } else {
+            actual_transferred = (int) (_inventory.GetEmptySpace()/comm->size);
+        }
     }
-    }
-    _inventory.AddItem(commodity, actual_transferred);
+    _inventory.AddItem(commodity, actual_transferred, unit_price);
     return actual_transferred;
 }
 
 int BasicTrader::Query(const std::string& name) { return _inventory.Query(name); }
+double BasicTrader::QueryCost(const std::string& name) { return _inventory.QueryCost(name); }
 double BasicTrader::GetEmptySpace() { return _inventory.GetEmptySpace(); }
 
 // Trading functions
@@ -391,8 +393,14 @@ void BasicTrader::Tick() {
             GenerateOffers(commodity.first);
         }
     }
+    if (money < 0) {
+        Destroy();
+        return;
+    }
     FlushOutbox();
-    if (initialised) ticks++;
+    if (initialised){
+        ticks++;
+    }
 }
 
 
@@ -404,17 +412,22 @@ bool Role::Random(double chance) {
 void Role::Produce(BasicTrader& trader, std::string commodity, int amount, double chance) {
     if (Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
-        trader.TryAddCommodity(commodity, amount, false);
+
+        if (trader.track_costs < 1) trader.track_costs = 1;
+        trader.TryAddCommodity(commodity, amount, trader.track_costs /  amount, false);
+        trader.track_costs = 0;
     }
 }
 void Role::Consume(BasicTrader& trader, std::string commodity, int amount, double chance) {
     if (Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount));
-        trader.TryTakeCommodity(commodity, amount, false);
+        trader.TryTakeCommodity(commodity, amount, 0, false);
+        trader.track_costs += amount*trader.QueryCost(commodity);
     }
 }
 void Role::LoseMoney(BasicTrader& trader, double amount) {
     trader.ForceTakeMoney(amount);
+    trader.track_costs += amount;
 }
 
 class EmptyRole : public Role {
