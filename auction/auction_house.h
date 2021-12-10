@@ -84,6 +84,8 @@ public:
                 ProcessAsk(incoming_message);
             } else if (incoming_message.GetType() == Msg::REGISTER_REQUEST) {
                 ProcessRegistrationRequest(incoming_message);
+            } else if (incoming_message.GetType() == Msg::SHUTDOWN_NOTIFY){
+                ProcessShutdownNotify(incoming_message);
             } else {
                 std::cout << "Unknown/unsupported message type " << incoming_message.GetType() << std::endl;
             }
@@ -138,6 +140,11 @@ public:
         known_traders[requested_id] = request->trader_pointer.lock();
         auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
         SendMessage(*msg, requested_id);
+    }
+    void ProcessShutdownNotify(Message& message) {
+        logger.Log(Log::DEBUG, "Deregistered trader "+std::to_string(message.sender_id));
+        // TODO: Figure out why uncommenting this causes a sigsev
+        //known_traders.erase(message.sender_id);
     }
     double AverageHistoricalPrice(std::string commodity, int window) {
         return history.prices.average(commodity, window);

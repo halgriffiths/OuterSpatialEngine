@@ -376,8 +376,12 @@ std::pair<double, double> BasicTrader::ObserveTradingRange(std::string commodity
 double BasicTrader::GetProfit() {return money - money_last_round;}
 // Misc
 void BasicTrader::Destroy() {
-    logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."));
+    auto res = auction_house.lock();
+    if (res) {
+        res->ReceiveMessage(*Message(id).AddShutdownNotify({id}));
+    }
     destroyed = true;
+    logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."));
     _inventory.inventory.clear();
     auction_house.reset();
 }

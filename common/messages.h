@@ -20,7 +20,8 @@ namespace Msg {
         BID_OFFER,
         ASK_OFFER,
         BID_RESULT,
-        ASK_RESULT
+        ASK_RESULT,
+        SHUTDOWN_NOTIFY
     };
 }
 
@@ -204,6 +205,20 @@ bool operator< (const AskOffer& a, const AskOffer& b) {
     return a.unit_price < b.unit_price;
 };
 
+
+struct ShutdownNotify {
+    int sender_id;
+    bool accepted;
+    std::optional<std::string> rejection_reason;
+
+    ShutdownNotify(int sender_id)
+            : sender_id(sender_id) {};
+
+    std::string ToString() {
+        return std::string("Shutdown notification received");
+    }
+};
+
 class Message {
 public:
     int sender_id; //originator of message
@@ -214,6 +229,7 @@ public:
     std::optional<AskOffer> ask_offer = std::nullopt;
     std::optional<BidResult> bid_result = std::nullopt;
     std::optional<AskResult> ask_result = std::nullopt;
+    std::optional<ShutdownNotify> shutdown_notify = std::nullopt;
 
     Message(int sender_id)
         : sender_id(sender_id)
@@ -271,6 +287,14 @@ public:
         ask_result = std::move(msg);
         return this;
     }
+    Message* AddShutdownNotify(ShutdownNotify msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::SHUTDOWN_NOTIFY;
+        shutdown_notify = std::move(msg);
+        return this;
+    }
 
     std::string ToString() {
         if (type == Msg::EMPTY) {
@@ -287,10 +311,15 @@ public:
             return ask_offer->ToString();
         } else if (type == Msg::ASK_RESULT) {
             return ask_result->ToString();
+        } else if (type == Msg::SHUTDOWN_NOTIFY) {
+            return shutdown_notify->ToString();
+        } else {
+            return "ERR: unknown message type";
         }
     }
     
 private:
     Msg::MessageType type;
 };
+
 #endif//CPPBAZAARBOT_MESSAGES_H
