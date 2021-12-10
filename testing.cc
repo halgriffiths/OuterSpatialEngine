@@ -24,8 +24,18 @@ TEST(RoleTests, ProduceFarmer) {
     auto FarmerWithWoodAndTools = CreateAndRegisterFarmer(1,  WoodAndToolsInv, auction_house);
     auto FarmerWithWoodNoTools = CreateAndRegisterFarmer(2, WoodNoToolsInv, auction_house);
     auto FarmerNoWood = CreateAndRegisterFarmer(3, NoWoodInv, auction_house);
+    //tick to flush outbox
+    FarmerWithWoodAndTools->Tick();
+    FarmerWithWoodNoTools->Tick();
+    FarmerNoWood->Tick();
 
     auction_house->Tick();
+
+    //tick to generate production
+    FarmerWithWoodAndTools->Tick();
+    FarmerWithWoodNoTools->Tick();
+    FarmerNoWood->Tick();
+    
     ASSERT_EQ(auction_house->NumKnownTraders(), 3);
 
     // Guy with wood and tools makes 6 food
@@ -43,20 +53,16 @@ TEST(BasicTests, SimpleTradeTest) {
     auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
     auction_house->RegisterCommodity(comm);
     auction_house->RegisterCommodity(comm1);
-    std::vector<InventoryItem> inv {{comm, 0, 0}, {comm1, 9, 0}};
+    std::vector<InventoryItem> inv {{comm, 5, 0}, {comm1, 9, 0}};
 
     std::shared_ptr<Role> AI_logic;
     AI_logic = std::make_shared<EmptyRole>();
-    std::vector<std::pair<Commodity, int>> c_v = {{comm, 5}, {comm1,9}};
-
     auto Alice = CreateAndRegister(1, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
     Alice->logger.verbosity = Log::DEBUG;
     auto Bob = CreateAndRegister(2, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
     auto Charlie = CreateAndRegister(3, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
     auto Dan = CreateAndRegister(4, auction_house, AI_logic, "none", 100.0, 50, inv, Log::WARN);
 
-    auction_house->Tick();
-    ASSERT_EQ(auction_house->NumKnownTraders(), 4);
 
     // Alice sells 3 for $10
     AskOffer ask = {1, "comm", 3, 10};
@@ -72,13 +78,14 @@ TEST(BasicTests, SimpleTradeTest) {
     bid = {4, "comm", 1, 11};
     Dan->SendMessage(*Message(4).AddBidOffer(std::move(bid)), auction_house->id);
 
+    //tick to flush outbox
     Alice->Tick();
     Bob->Tick();
     Charlie->Tick();
     Dan->Tick();
 
     auction_house->Tick();
-
+    ASSERT_EQ(auction_house->NumKnownTraders(), 4);
     // We expect as an outcome:
     //        1. Alice sells 3 to Charlie for $10 (0 unsold)
     //        2. Bob sells 1 to Charlie for $12 (4 unsold)

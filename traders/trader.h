@@ -43,6 +43,8 @@ public:
 
 class BasicTrader : public Agent {
 private:
+    bool initialised = false;
+
     std::optional<std::shared_ptr<Role>> logic;
     double MIN_PRICE = 0.01;
     int ticks = 0;
@@ -181,7 +183,15 @@ void BasicTrader::ProcessAskResult(Message& message) {
 void BasicTrader::ProcessBidResult(Message& message) {
     UpdatePriceModelFromBid(*message.bid_result);
 }
-void BasicTrader::ProcessRegistrationResponse(Message& message) {}
+void BasicTrader::ProcessRegistrationResponse(Message& message) {
+    if (message.register_response->accepted) {
+        initialised = true;
+        logger.Log(Log::INFO, "Successfully registered with auction house");
+    } else {
+        logger.Log(Log::ERROR, "Failed to register with auction house");
+        Destroy();
+    }
+}
 
 bool BasicTrader::HasMoney(double quantity) {
     return (money >= quantity);
@@ -372,15 +382,17 @@ void BasicTrader::Destroy() {
 void BasicTrader::Tick() {
     money_last_round = money;
     FlushInbox();
-    if (logic) {
-        logger.Log(Log::DEBUG, "Ticking internal logic");
-        (*logic)->TickRole(*this);
-    }
-    for (const auto& commodity : _inventory.inventory) {
-        GenerateOffers(commodity.first);
+    if (initialised) {
+        if (logic) {
+            logger.Log(Log::DEBUG, "Ticking internal logic");
+            (*logic)->TickRole(*this);
+        }
+        for (const auto& commodity : _inventory.inventory) {
+            GenerateOffers(commodity.first);
+        }
     }
     FlushOutbox();
-    ticks++;
+    if (initialised) ticks++;
 }
 
 

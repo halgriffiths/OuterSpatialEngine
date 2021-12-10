@@ -34,7 +34,7 @@ std::shared_ptr<BasicTrader> CreateAndRegister(int id,
                                                const std::string& name,
                                                double starting_money,
                                                double inv_capacity,
-                                               const std::vector<InventoryItem>& inv,
+                                               const std::vector<InventoryItem> inv,
                                                Log::LogLevel log_level
 ) {
 
