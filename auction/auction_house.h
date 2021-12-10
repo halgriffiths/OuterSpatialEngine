@@ -30,7 +30,7 @@ private:
     int ticks = 0;
     std::mersenne_twister_engine<uint_fast32_t, 32, 624, 397, 31, 0x9908b0dfUL, 11, 0xffffffffUL, 7, 0x9d2c5680UL, 15, 0xefc60000UL, 18, 1812433253UL> rng_gen = std::mt19937(std::random_device()());
     std::map<std::string, Commodity> known_commodities;
-    std::map<int, std::shared_ptr<Agent>> known_traders;  //key = trader-id
+    std::map<int, std::shared_ptr<BasicTrader>> known_traders;  //key = trader-id
 
     std::map<std::string, std::vector<BidOffer>> bid_book = {};
     std::map<std::string, std::vector<AskOffer>> ask_book = {};
@@ -61,13 +61,13 @@ public:
         logger.Log(Log::DEBUG, "Flushing outbox");
         while (!outbox.empty()) {
             auto& outgoing = outbox.back();
-            outbox.pop_back();
             if (known_traders.find(outgoing.first) == known_traders.end()) {
                 logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
                 continue;
             }
             logger.LogSent(outgoing.first, Log::DEBUG, outgoing.second.ToString());
             known_traders[outgoing.first]->ReceiveMessage(std::move(outgoing.second));
+            outbox.pop_back();
         }
         logger.Log(Log::DEBUG, "Flush finished");
     }
@@ -142,7 +142,7 @@ public:
         SendMessage(*msg, requested_id);
     }
     void ProcessShutdownNotify(Message& message) {
-        logger.Log(Log::DEBUG, "Deregistered trader "+std::to_string(message.sender_id));
+        logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id));
         // TODO: Figure out why uncommenting this causes a sigsev
         //known_traders.erase(message.sender_id);
     }
@@ -278,7 +278,7 @@ private:
             BidOffer& curr_bid = bids[0];
             AskOffer& curr_ask = asks[0];
 
-            if (!CheckBidStake(curr_bid)) {
+            if (!CheckBidStake(curr_bid) || curr_ask.sender_id == curr_bid.sender_id) {
                 CloseBid(std::move(curr_bid), std::move(bid_result));
                 bids.erase(bids.begin());
                 bid_result = BidResult(id, commodity);
@@ -355,7 +355,7 @@ private:
             // Reset result
             bid_result = BidResult(id, commodity);
         }
-        if (!asks.empty()) {
+        while (!asks.empty()) {
             AskOffer& curr_ask = asks[0];
             CloseAsk(std::move(curr_ask), std::move(ask_result));
             asks.erase(asks.begin());
