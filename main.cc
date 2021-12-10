@@ -9,8 +9,6 @@
 #include <vector>
 #include <boost/bind.hpp>
 
-
-
 // ---------------- MAIN ----------
 int main() {
 
@@ -25,27 +23,27 @@ int main() {
     auto wood = Commodity("wood");
     auto tools = Commodity("tools");
 
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::INFO);
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
     auction_house->RegisterCommodity(food);
     auction_house->RegisterCommodity(wood);
     auction_house->RegisterCommodity(tools);
 
-    std::vector<InventoryItem> WoodAndToolsInv {{food, 0, 10}, {wood, 5, 5}, {tools,1 , 1}};
-    std::vector<InventoryItem> WoodNoToolsInv {{food, 0, 10}, {wood, 5, 5}, {tools, 0, 1}};
-    std::vector<InventoryItem> NoWoodInv {{food, 0, 10}, {wood, 0, 5}, {tools, 1, 1}};
+    std::vector<std::shared_ptr<BasicTrader>> all_traders;
+    std::vector<InventoryItem> DefaultFarmerInv{{food, 0, 0}, {wood, 0, 3}, {tools, 1, 1}};
+    std::vector<InventoryItem> DefaultWoodcutterInv{{food, 1, 3}, {wood, 0, 0}, {tools, 1, 1}};
 
-    auto FarmerWithWoodAndTools = CreateAndRegisterFarmer(1,  WoodAndToolsInv, auction_house, 20.0);
-    auto FarmerWithWoodNoTools = CreateAndRegisterFarmer(2, WoodNoToolsInv, auction_house, 20.0);
-    auto FarmerNoWood = CreateAndRegisterFarmer(3, NoWoodInv, auction_house, 20.0);
+    int max_id = 1;
+    std::shared_ptr<BasicTrader> new_trader;
+    for (int i = 0; i < 4; i++) {
+        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", 20.0, 20, DefaultFarmerInv, Log::WARN);
+        all_traders.push_back(new_trader);
+        max_id++;
+        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 20.0, 20, DefaultWoodcutterInv, Log::WARN);
+        all_traders.push_back(new_trader);
+        max_id++;
+    }
 
-    std::vector<InventoryItem> LoadsOfWoodInv {{wood, 10, 0}, {food, 1, 5}, {tools,1 , 1}};
-    auto WoodcutterNoFood = CreateAndRegister(4, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 20.0, 50, LoadsOfWoodInv, Log::WARN);
-
-    std::vector<InventoryItem> LoadsOfWoodAndFoodInv {{wood, 10, 0}, {food, 10, 5}, {tools,1 , 1}};
-    auto RichWoodcutter = CreateAndRegister(4, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 20.0, 50, LoadsOfWoodAndFoodInv, Log::WARN);
-
-    std::vector<std::shared_ptr<BasicTrader>> all_traders = {FarmerWithWoodAndTools, FarmerWithWoodNoTools, FarmerNoWood, WoodcutterNoFood, RichWoodcutter};
-    for (int curr_tick = 0; curr_tick < 100; curr_tick++) {
+    for (int curr_tick = 0; curr_tick < 30; curr_tick++) {
         int num_farmers = 0;
         int num_woodcutters = 0;
 
@@ -57,6 +55,9 @@ int main() {
                 } else if (t->class_name == "woodcutter") {
                     num_woodcutters++;
                 }
+            } else {
+                //trader died, add new trader?
+
             }
         }
 
