@@ -94,18 +94,30 @@ struct BidResult {
 
     std::string ToString() {
         std::string output("BID RESULT from ");
-        output.append(std::to_string(sender_id))
-                .append(": Bought ")
-                .append(commodity)
-                .append(" x")
-                .append(std::to_string(quantity_traded))
-                .append(" @ avg price $")
-                .append(std::to_string(avg_price))
-                .append(" (")
-                .append(std::to_string(quantity_traded))
-                .append("/")
-                .append(std::to_string(quantity_traded+quantity_untraded))
-                .append(" bought)");
+        if (quantity_traded > 0) {
+            output.append(std::to_string(sender_id))
+                    .append(": Bought ")
+                    .append(commodity)
+                    .append(" x")
+                    .append(std::to_string(quantity_traded))
+                    .append(" @ avg price $")
+                    .append(std::to_string(avg_price))
+                    .append(" (")
+                    .append(std::to_string(quantity_traded))
+                    .append("/")
+                    .append(std::to_string(quantity_traded+quantity_untraded))
+                    .append(" bought)");
+        } else {
+            output.append(std::to_string(sender_id))
+                    .append(": Failed to buy ")
+                    .append(commodity)
+                    .append(" (")
+                    .append(std::to_string(quantity_traded))
+                    .append("/")
+                    .append(std::to_string(quantity_traded+quantity_untraded))
+                    .append(" bought)");
+        }
+
         return output;
     }
 };
@@ -132,18 +144,30 @@ struct AskResult {
 
     std::string ToString() {
         std::string output("ASK RESULT from ");
-        output.append(std::to_string(sender_id))
-                .append(": Sold   ")
-                .append(commodity)
-                .append(" x")
-                .append(std::to_string(quantity_traded))
-                .append(" @ avg price $")
-                .append(std::to_string(avg_price))
-                .append(" (")
-                .append(std::to_string(quantity_traded))
-                .append("/")
-                .append(std::to_string(quantity_untraded+quantity_traded))
-                .append(" sold)");
+        if (quantity_traded > 0) {
+            output.append(std::to_string(sender_id))
+                    .append(": Sold   ")
+                    .append(commodity)
+                    .append(" x")
+                    .append(std::to_string(quantity_traded))
+                    .append(" @ avg price $")
+                    .append(std::to_string(avg_price))
+                    .append(" (")
+                    .append(std::to_string(quantity_traded))
+                    .append("/")
+                    .append(std::to_string(quantity_untraded+quantity_traded))
+                    .append(" sold)");
+        } else {
+            output.append(std::to_string(sender_id))
+                    .append(": Failed to sell ")
+                    .append(commodity)
+                    .append(" (")
+                    .append(std::to_string(quantity_traded))
+                    .append("/")
+                    .append(std::to_string(quantity_untraded+quantity_traded))
+                    .append(" sold)");
+        }
+
         return output;
     }
 };
