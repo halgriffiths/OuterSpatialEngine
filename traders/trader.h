@@ -406,7 +406,7 @@ void BasicTrader::Tick() {
             GenerateOffers(commodity.first);
         }
     }
-    if (money < 0) {
+    if (money <= 0) {
         Destroy();
         return;
     }
@@ -454,11 +454,10 @@ public:
         bool has_tools = (0 < trader.Query("tools"));
         bool too_much_food = (3*trader.GetIdeal("food") < trader.Query("food"));
         // Stop producing if you have way too many goods (3x ideal)
-        if (!has_wood || too_much_food ) {
-            //LoseMoney(trader, 2); //$2 idleness fine
+        if (!has_wood || (too_much_food && trader.HasMoney(10))) {
+            LoseMoney(trader, 2); //$2 idleness fine
             return;
         }
-
         if (has_tools) {
             // 10% chance tools break
             Consume(trader, "tools", 1, 0.1);
@@ -477,9 +476,9 @@ public:
         bool has_food = (0 < trader.Query("food"));
         bool has_tools = (0 < trader.Query("tools"));
         bool too_much_wood = (3*trader.GetIdeal("wood") < trader.Query("wood"));
-        // Stop producing if you have way too many goods (3x ideal)
-        if (!has_food || too_much_wood) {
-            //LoseMoney(trader, 2);//$2 idleness fine
+        // Stop producing if you have way too many goods (3x ideal) and some money (5 days worth)
+        if (!has_food || (too_much_wood && trader.HasMoney(10))) {
+            LoseMoney(trader, 2);//$2 idleness fine
             return;
         }
 
