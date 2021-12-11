@@ -137,7 +137,12 @@ public:
         }
 
         // Otherwise, OK the request and register
-        known_traders[requested_id] = request->trader_pointer.lock();
+        auto res = request->trader_pointer.lock();
+        if (!res) {
+            logger.Log(Log::ERROR, "Failed to convert weak_ptr to shared, unable to reply to reg request from "+std::to_string(requested_id));
+            return;
+        }
+        known_traders[requested_id] = std::move(res);
         auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
         SendMessage(*msg, requested_id);
     }
@@ -168,7 +173,8 @@ public:
         }
         history.initialise(new_commodity.name);
         known_commodities[new_commodity.name] = new_commodity;
-
+        bid_book[new_commodity.name] = {};
+        ask_book[new_commodity.name] = {};
     }
 
     void Tick() {
