@@ -35,15 +35,15 @@ int main() {
     int max_id = 1;
     std::shared_ptr<AITrader> new_trader;
     for (int i = 0; i < 3; i++) {
-        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", 20.0, 20, DefaultFarmerInv, Log::WARN);
+        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", 20.0, 20, DefaultFarmerInv, Log::DEBUG);
         all_traders.push_back(new_trader);
         max_id++;
-        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 20.0, 20, DefaultWoodcutterInv, Log::WARN);
+        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", 20.0, 20, DefaultWoodcutterInv, Log::DEBUG);
         all_traders.push_back(new_trader);
         max_id++;
     }
 
-    for (int curr_tick = 0; curr_tick < 30; curr_tick++) {
+    for (int curr_tick = 0; curr_tick < 10; curr_tick++) {
         int num_farmers = 0;
         int num_woodcutters = 0;
 

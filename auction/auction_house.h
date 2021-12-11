@@ -254,8 +254,8 @@ private:
         return 0;
     }
     void ResolveOffers(const std::string& commodity) {
-        std::vector<BidOffer> bids = bid_book[commodity];
-        std::vector<AskOffer> asks = ask_book[commodity];
+        std::vector<BidOffer>& bids = bid_book[commodity];
+        std::vector<AskOffer>& asks = ask_book[commodity];
 
         std::shuffle(bids.begin(), bids.end(), rng_gen);
         std::shuffle(bids.begin(), bids.end(), rng_gen);
