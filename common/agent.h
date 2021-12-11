@@ -22,11 +22,10 @@ public:
 // A Trader is an Agent capable of interacting with an AuctionHouse
 class Trader : public Agent {
 public:
-
-
     Trader(int id) : Agent(id) {};
+
     virtual bool HasMoney(double quantity) {return false;};
-    virtual bool HasCommodity(std::string commodity, int quantity) {return false;};
+    virtual bool HasCommodity(const std::string& commodity, int quantity) {return false;};
 
     virtual int GetIdeal(const std::string& name) { return 0; };
     virtual int Query(const std::string& name) { return 0; }
@@ -36,7 +35,7 @@ private:
     friend AuctionHouse;
     virtual double TryTakeMoney(double quantity, bool atomic) {};
     virtual void AddMoney(double quantity) {};
-    virtual int TryAddCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
-    virtual int TryTakeCommodity(std::string commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
+    virtual int TryAddCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
+    virtual int TryTakeCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
 };
 #endif//CPPBAZAARBOT_AGENT_H

@@ -151,20 +151,20 @@ public:
         // TODO: Figure out why uncommenting this causes a sigsev
         //known_traders.erase(message.sender_id);
     }
-    double AverageHistoricalPrice(std::string commodity, int window) {
+    double AverageHistoricalPrice(const std::string& commodity, int window) {
         return history.prices.average(commodity, window);
     }
-    double AverageHistoricalTrades(std::string commodity, int window) {
+    double AverageHistoricalTrades(const std::string& commodity, int window) {
         return history.trades.average(commodity, window);
     }
-    double AverageHistoricalAsks(std::string commodity, int window) {
+    double AverageHistoricalAsks(const std::string& commodity, int window) {
         return history.asks.average(commodity, window);
     }
-    double AverageHistoricalBids(std::string commodity, int window) {
+    double AverageHistoricalBids(const std::string& commodity, int window) {
         return history.bids.average(commodity, window);
     }
     int NumKnownTraders() {
-        return known_traders.size();
+        return (int) known_traders.size();
     }
     void RegisterCommodity(const Commodity& new_commodity) {
         if (known_commodities.find(new_commodity.name) != known_commodities.end()) {
@@ -214,14 +214,14 @@ private:
         }
         return true;
     }
-    void CloseBid(BidOffer bid, BidResult bid_result) {
+    void CloseBid(const BidOffer& bid, BidResult bid_result) {
         if (bid.quantity > 0) {
             // partially unfilled
             bid_result.UpdateWithNoTrade(bid.quantity);
         }
         SendMessage(*Message(id).AddBidResult(std::move(bid_result)), bid.sender_id);
     }
-    void CloseAsk(AskOffer ask, AskResult ask_result) {
+    void CloseAsk(const AskOffer& ask, AskResult ask_result) {
         if (ask.quantity > 0) {
             // partially unfilled
             ask_result.UpdateWithNoTrade(ask.quantity);
@@ -285,13 +285,13 @@ private:
             AskOffer& curr_ask = asks[0];
 
             if (!CheckBidStake(curr_bid) || curr_ask.sender_id == curr_bid.sender_id) {
-                CloseBid(std::move(curr_bid), std::move(bid_result));
+                CloseBid(curr_bid, std::move(bid_result));
                 bids.erase(bids.begin());
                 bid_result = BidResult(id, commodity);
                 continue;
             }
             if (!CheckAskStake(curr_ask)) {
-                CloseAsk(std::move(curr_ask), std::move(ask_result));
+                CloseAsk(curr_ask, std::move(ask_result));
                 asks.erase(asks.begin());
                 ask_result = AskResult(id, commodity);
                 continue;
@@ -311,7 +311,7 @@ private:
                 auto res = MakeTransaction(commodity, buyer, seller, quantity_traded, clearing_price);
                 if (res == 1) {
                     //seller failed
-                    CloseAsk(std::move(curr_ask), std::move(ask_result));
+                    CloseAsk(curr_ask, std::move(ask_result));
                     asks.erase(asks.begin());
                     // Reset result
                     ask_result = AskResult(id, commodity);
@@ -319,7 +319,7 @@ private:
                 }
                 if (res == 2) {
                     //buyer failed
-                    CloseBid(std::move(curr_bid), std::move(bid_result));
+                    CloseBid(curr_bid, std::move(bid_result));
                     bids.erase(bids.begin());
                     bid_result = BidResult(id, commodity);
                     break;
@@ -342,13 +342,13 @@ private:
 
             if (curr_bid.quantity <= 0) {
                 // Fulfilled buy order
-                CloseBid(std::move(curr_bid), std::move(bid_result));
+                CloseBid(curr_bid, std::move(bid_result));
                 bids.erase(bids.begin());
                 bid_result = BidResult(id, commodity);
             }
             if (curr_ask.quantity <= 0) {
                 // Fulfilled sell order
-                CloseAsk(std::move(curr_ask), std::move(ask_result));
+                CloseAsk(curr_ask, std::move(ask_result));
                 asks.erase(asks.begin());
                 ask_result = AskResult(id, commodity);
             }
@@ -356,14 +356,14 @@ private:
 
         while (!bids.empty()) {
             BidOffer& curr_bid = bids[0];
-            CloseBid(std::move(curr_bid), std::move(bid_result));
+            CloseBid(curr_bid, std::move(bid_result));
             bids.erase(bids.begin());
             // Reset result
             bid_result = BidResult(id, commodity);
         }
         while (!asks.empty()) {
             AskOffer& curr_ask = asks[0];
-            CloseAsk(std::move(curr_ask), std::move(ask_result));
+            CloseAsk(curr_ask, std::move(ask_result));
             asks.erase(asks.begin());
             // Reset result
             ask_result = AskResult(id, commodity);

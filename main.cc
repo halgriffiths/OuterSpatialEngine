@@ -28,7 +28,7 @@ int main() {
     auction_house->RegisterCommodity(wood);
     auction_house->RegisterCommodity(tools);
 
-    std::vector<std::AITrader<AITrader>> all_traders;
+    std::vector<std::shared_ptr<AITrader>> all_traders;
     std::vector<InventoryItem> DefaultFarmerInv{{food, 0, 0}, {wood, 0, 3}, {tools, 1, 1}};
     std::vector<InventoryItem> DefaultWoodcutterInv{{food, 1, 3}, {wood, 0, 0}, {tools, 1, 1}};
 

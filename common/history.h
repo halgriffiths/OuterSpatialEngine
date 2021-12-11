@@ -37,14 +37,14 @@ public:
         log[name] = {starting_value};
     }
 
-    void add(std::string name, double amount) {
+    void add(const std::string& name, double amount) {
         if (log.count(name) != 1) {
             return;// no entry found
         }
         log[name].push_back(amount);
     }
 
-    double average(std::string name, int range) {
+    double average(const std::string& name, int range) {
         if (log.count(name) != 1) {
             return 0;// no entry found
         }
