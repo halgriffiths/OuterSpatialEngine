@@ -249,7 +249,10 @@ int AITrader::TryAddCommodity(const std::string& commodity, int quantity, std::o
             actual_transferred = 0;
             logger.Log(Log::DEBUG, "Failed to add "+commodity+std::string(" x") + std::to_string(quantity));
         } else {
-            actual_transferred = (int) (_inventory.GetEmptySpace()/comm->size);
+            actual_transferred = std::floor(_inventory.GetEmptySpace()/comm->size);
+            //overproduced! Drop value of goods accordingly
+            int overproduction = quantity - actual_transferred;
+            _inventory.inventory[commodity].original_cost *= std::pow(1.3, -1*overproduction);
         }
     }
     _inventory.AddItem(commodity, actual_transferred, unit_price);
@@ -442,7 +445,7 @@ public:
         bool has_tools = (0 < trader.Query("tools"));
         bool too_much_food = (3*trader.GetIdeal("food") < trader.Query("food"));
         // Stop producing if you have way too many goods (3x ideal)
-        if (!has_wood || (too_much_food && trader.HasMoney(10))) {
+        if (!has_wood) {
             LoseMoney(trader, 2); //$2 idleness fine
             return;
         }
@@ -465,7 +468,7 @@ public:
         bool has_tools = (0 < trader.Query("tools"));
         bool too_much_wood = (3*trader.GetIdeal("wood") < trader.Query("wood"));
         // Stop producing if you have way too many goods (3x ideal) and some money (5 days worth)
-        if (!has_food || (too_much_wood && trader.HasMoney(10))) {
+        if (!has_food) {
             LoseMoney(trader, 2);//$2 idleness fine
             return;
         }
