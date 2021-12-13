@@ -289,7 +289,7 @@ void AITrader::UpdatePriceModelFromAsk(const AskResult& result) {
 void AITrader::GenerateOffers(const std::string& commodity) {
     int surplus = _inventory.Surplus(commodity);
     if (surplus >= 1) {
-        logger.Log(Log::DEBUG, "Considering ask for "+commodity);
+        logger.Log(Log::DEBUG, "Considering ask for "+commodity + std::string(" - Current surplus = ") + std::to_string(surplus));
         auto offer = CreateAsk(commodity, 1);
         if (offer.quantity > 0) {
             SendMessage(*Message(id).AddAskOffer(offer), auction_house.lock()->id);
@@ -304,7 +304,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
         int limit = (shortage*unit_size <= space) ? shortage : (int) space/shortage;
         if (limit > 0)
         {
-            logger.Log(Log::DEBUG, "Considering bid for "+commodity);
+            logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
             auto offer = CreateBid(commodity, limit);
             if (offer.quantity > 0) {
                 SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
