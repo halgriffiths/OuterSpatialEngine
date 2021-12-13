@@ -61,17 +61,25 @@ int main() {
         int num_farmers = 0;
         int num_woodcutters = 0;
 
-        for (const auto& t : all_traders) {
-            t->Tick();
-            if (!t->destroyed) {
-                if (t->class_name == "farmer") {
+        for (int i = 0; i < all_traders.size(); i++) {
+            if (!all_traders[i]->destroyed) {
+                all_traders[i]->Tick();
+                if (all_traders[i]->class_name == "farmer") {
                     num_farmers++;
-                } else if (t->class_name == "woodcutter") {
+                } else if (all_traders[i]->class_name == "woodcutter") {
                     num_woodcutters++;
                 }
             } else {
                 //trader died, add new trader?
+                if (rand() % 2) {
+                    // WOODCUTTER
+                    all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", STARTING_MONEY, 20, DefaultWoodcutterInv, Log::WARN);
+                } else {
+                    //FARMER
+                    all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", STARTING_MONEY, 20, DefaultFarmerInv, Log::WARN);
+                }
 
+                max_id++;
             }
         }
 
