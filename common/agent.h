@@ -11,12 +11,23 @@
 class AuctionHouse;
 // All an agent is is an entity with an id, capable of sending and receiving messages
 class Agent {
+protected:
+    std::vector<Message> inbox = {};
+    std::vector<std::pair<int, Message>> outbox = {}; //Message, recipient_id
+
 public:
     int id;
     int ticks = 0;
     Agent(int agent_id) : id(agent_id) {};
-    virtual void ReceiveMessage(Message incoming_message) = 0;
-    virtual void SendMessage(Message& outgoing_message,  int recipient) = 0;
+
+    void ReceiveMessage(Message incoming_message) {
+        inbox.push_back(incoming_message);
+    }
+    void SendMessage(Message& outgoing_message, int recipient) {
+        outbox.emplace_back(recipient,std::move(outgoing_message));
+    }
+
+
 };
 
 // A Trader is an Agent capable of interacting with an AuctionHouse

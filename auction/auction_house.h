@@ -35,8 +35,7 @@ private:
     std::map<std::string, std::vector<BidOffer>> bid_book = {};
     std::map<std::string, std::vector<AskOffer>> ask_book = {};
 
-    std::vector<Message> inbox = {};
-    std::vector<std::pair<int, Message>> outbox = {}; //Message, recipient_id
+
     ConsoleLogger logger;
 
 public:
@@ -45,13 +44,7 @@ public:
         , logger(ConsoleLogger(std::string("AH")+std::to_string(id), verbosity)) {
     }
 
-    // Messaging functions
-    void ReceiveMessage(Message incoming_message) override {
-        inbox.push_back(incoming_message);
-    }
-    void SendMessage(Message& outgoing_message, int recipient) override {
-        outbox.emplace_back(recipient,std::move(outgoing_message));
-    }
+
     void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
         logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
         logger.LogSent(recipient->id, Log::DEBUG, outgoing_message.ToString());

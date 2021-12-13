@@ -50,9 +50,6 @@ private:
 
     std::weak_ptr<AuctionHouse> auction_house;
 
-    std::vector<Message> inbox;
-    std::vector<std::pair<int, Message>> outbox;
-
     std::map<std::string, std::vector<double>> _observedTradingRange;
     double profit_last_round = 0;
     int  external_lookback = 15; //history range (num ticks)
@@ -89,10 +86,7 @@ public:
 
         track_costs = 0;
     }
-    // Messaging functions
-    void ReceiveMessage(Message incoming_message) override;
 
-    void SendMessage(Message& outgoing_message, int recipient) override;
 
     void FlushOutbox();
     void FlushInbox();
@@ -135,13 +129,6 @@ public:
     void Tick();
 };
 
-void AITrader::ReceiveMessage(Message incoming_message) {
-    logger.LogReceived(incoming_message.sender_id, Log::DEBUG, incoming_message.ToString());
-    inbox.push_back(incoming_message);
-}
-void AITrader::SendMessage(Message& outgoing_message, int recipient) {
-    outbox.emplace_back(recipient, std::move(outgoing_message));
-}
 void AITrader::FlushOutbox() {
         logger.Log(Log::DEBUG, "Flushing outbox");
         while (!outbox.empty()) {
@@ -161,6 +148,7 @@ void AITrader::FlushInbox() {
     logger.Log(Log::DEBUG, "Flushing inbox");
     while (!inbox.empty()) {
         auto& incoming_message = inbox.back();
+        logger.LogReceived(incoming_message.sender_id, Log::DEBUG, incoming_message.ToString());
         if (incoming_message.GetType() == Msg::EMPTY) {
             //no-op
         } else if (incoming_message.GetType() == Msg::BID_RESULT) {
