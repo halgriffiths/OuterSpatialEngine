@@ -312,7 +312,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
             int min_limit = (_inventory.Query(commodity) == 0) ? 1 : 0;
             logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
 
-            double desperation = 1 - std::pow((0.2 * money / IDLE_TAX), 0.5*shortage);
+            double desperation = 1 - std::pow((0.2 * money / IDLE_TAX), 0.2*shortage);
             auto offer = CreateBid(commodity, min_limit, max_limit, desperation);
             if (offer.quantity > 0) {
                 SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
@@ -330,6 +330,7 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     } else {
         bid_price = bid_price + (bid_price - min_price)*desperation;
     }
+    bid_price = std::min(std::max(min_price, bid_price), max_price);
 
     int ideal = DetermineBuyQuantity(commodity);
 
