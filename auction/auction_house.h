@@ -290,11 +290,19 @@ private:
             }
 
             if (curr_ask.unit_price > curr_bid.max_unit_price) {
-                break;
+                CloseBid(curr_bid, std::move(bid_result));
+                bids.erase(bids.begin());
+                bid_result = BidResult(id, commodity);
+                continue;
             }
 
             int quantity_traded = std::min(curr_bid.quantity, curr_ask.quantity);
-            double clearing_price = curr_ask.unit_price;
+            double clearing_price;
+            if (curr_bid.unit_price > curr_ask.unit_price) {
+                clearing_price = (curr_bid.unit_price + curr_ask.unit_price) / 2;
+            } else {
+                clearing_price = curr_ask.unit_price;
+            }
 
             if (quantity_traded > 0) {
                 // MAKE TRANSACTION

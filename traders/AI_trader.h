@@ -115,7 +115,7 @@ public:
     void UpdatePriceModelFromAsk(const AskResult& result);
 
     void GenerateOffers(const std::string& commodity);
-    BidOffer CreateBid(const std::string& commodity, int max_limit);
+    BidOffer CreateBid(const std::string& commodity, int min_limit, int max_limit);
     AskOffer CreateAsk(const std::string& commodity, int min_limit);
 
     int DetermineBuyQuantity(const std::string& commodity);
@@ -301,28 +301,28 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     double unit_size = _inventory.GetSize(commodity);
 
     if (shortage > 0 && space >= unit_size) {
-        int limit = (shortage*unit_size <= space) ? shortage : (int) space/shortage;
-        if (limit > 0)
+        int max_limit = (shortage*unit_size <= space) ? shortage : (int) space/shortage;
+        if (max_limit > 0)
         {
+            int min_limit = (_inventory.Query(commodity) == 0) ? 1 : 0;
             logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
-            auto offer = CreateBid(commodity, limit);
+            auto offer = CreateBid(commodity, min_limit, max_limit);
             if (offer.quantity > 0) {
                 SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
             }
         }
     }
 }
-BidOffer AITrader::CreateBid(const std::string& commodity, int max_limit) {
+BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit) {
     // Bids are sold at seller's price, so this value is only used as an estimate for the trader to decide quantities
-    double bid_price = 1.05* (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
+    double bid_price = (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
     // The maximum price willing to pay (hardcoded for now)
     double max_price = money;
 
     int ideal = DetermineBuyQuantity(commodity);
 
     //can't buy more than limit
-    int quantity = ideal > max_limit ? max_limit : ideal;
-    //note that this could be a noop (quantity=0) at this point
+    int quantity = std::max(std::min(ideal, max_limit), min_limit);
     return BidOffer(id, commodity, quantity, bid_price, max_price);
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
@@ -347,7 +347,7 @@ int AITrader::DetermineBuyQuantity(const std::string& commodity) {
     favorability = 1 - favorability; //do 1 - favorability to see how close we are to the low end
     double amount_to_buy = favorability * _inventory.Shortage(commodity);//double
 
-    return (int) amount_to_buy;
+    return std::ceil(amount_to_buy);
 }
 int AITrader::DetermineSaleQuantity(const std::string& commodity) {
     return _inventory.Surplus(commodity); //Sell all surplus

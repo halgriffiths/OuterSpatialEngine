@@ -224,7 +224,7 @@ struct AskOffer {
 };
 
 bool operator< (const BidOffer& a, const BidOffer& b) {
-    return a.max_unit_price < b.max_unit_price;
+    return a.unit_price < b.unit_price;
 };
 bool operator< (const AskOffer& a, const AskOffer& b) {
     return a.unit_price < b.unit_price;
