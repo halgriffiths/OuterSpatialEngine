@@ -19,7 +19,7 @@ int main() {
     int SAMPLE_ID = 0;
     int SAMPLE_ID2 = 1;
 
-    std::vector<std::string> tracked_goods = {"food", "wood", "tools"};
+    std::vector<std::string> tracked_goods = {"food", "wood"};
     std::vector<std::string> tracked_roles = {"farmer", "woodcutter"};
     std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics, avg_trades_metrics, avg_asks_metrics, avg_bids_metrics;
@@ -164,6 +164,7 @@ int main() {
     for (auto& good : tracked_goods) {
         plots.add_plot1d(sample1_metrics[good], "with lines title '"+good+std::string("'"));
     }
+    plots.add_plot1d(sample1_metrics["money"], "with lines title 'money'");
     gp << plots;
 
     gp << "set title 'Sample Trader Detail - 2'\n";
@@ -171,5 +172,6 @@ int main() {
     for (auto& good : tracked_goods) {
         plots.add_plot1d(sample2_metrics[good], "with lines title '"+good+std::string("'"));
     }
+    plots.add_plot1d(sample2_metrics["money"], "with lines title 'money'");
     gp << plots;
 }
