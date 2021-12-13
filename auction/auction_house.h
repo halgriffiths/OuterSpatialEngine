@@ -141,8 +141,7 @@ public:
     }
     void ProcessShutdownNotify(Message& message) {
         logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id));
-        // TODO: Figure out why uncommenting this causes a sigsev
-        //known_traders.erase(message.sender_id);
+        known_traders.erase(message.sender_id);
     }
     double AverageHistoricalPrice(const std::string& commodity, int window) {
         return history.prices.average(commodity, window);
