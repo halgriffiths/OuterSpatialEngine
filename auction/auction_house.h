@@ -289,7 +289,7 @@ private:
                 continue;
             }
 
-            if (curr_ask.unit_price > curr_bid.unit_price) {
+            if (curr_ask.unit_price > curr_bid.max_unit_price) {
                 break;
             }
 

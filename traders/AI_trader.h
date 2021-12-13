@@ -52,8 +52,8 @@ private:
 
     std::map<std::string, std::vector<double>> _observedTradingRange;
     double profit_last_round = 0;
-    int  external_lookback = 15; //history range (num ticks)
-    int internal_lookback = 50; //history range (num trades)
+    int  external_lookback = 5; //history range (num ticks)
+    int internal_lookback = 10; //history range (num trades)
 
 public:
     std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
@@ -313,14 +313,17 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     }
 }
 BidOffer AITrader::CreateBid(const std::string& commodity, int max_limit) {
-    //AI agents offer a fair bid price - 5% above recent average market value
+    // Bids are sold at seller's price, so this value is only used as an estimate for the trader to decide quantities
     double bid_price = 1.05* (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
+    // The maximum price willing to pay (hardcoded for now)
+    double max_price = money;
+
     int ideal = DetermineBuyQuantity(commodity);
 
     //can't buy more than limit
     int quantity = ideal > max_limit ? max_limit : ideal;
     //note that this could be a noop (quantity=0) at this point
-    return BidOffer(id, commodity, quantity, bid_price);
+    return BidOffer(id, commodity, quantity, bid_price, max_price);
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 2% profit
@@ -418,7 +421,9 @@ void Role::Consume(AITrader& trader, const std::string& commodity, int amount, d
     if (Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount));
         trader.TryTakeCommodity(commodity, amount, 0, false);
-        trader.track_costs += amount*trader.QueryCost(commodity);
+        if (amount > 0) {
+            trader.track_costs += amount*trader.QueryCost(commodity);
+        }
     }
 }
 void Role::LoseMoney(AITrader& trader, double amount) {

@@ -177,12 +177,13 @@ struct BidOffer {
     std::string commodity;
     int quantity;
     double unit_price;
-
-    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price)
+    double max_unit_price;
+    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, double max_price)
             : sender_id(sender_id)
             , commodity(commodity_name)
             , quantity(quantity)
-            , unit_price(unit_price) {};
+            , unit_price(unit_price)
+            , max_unit_price(max_price) {};
 
     std::string ToString() {
         std::string output("BID from ");
@@ -223,7 +224,7 @@ struct AskOffer {
 };
 
 bool operator< (const BidOffer& a, const BidOffer& b) {
-    return a.unit_price < b.unit_price;
+    return a.max_unit_price < b.max_unit_price;
 };
 bool operator< (const AskOffer& a, const AskOffer& b) {
     return a.unit_price < b.unit_price;
