@@ -11,8 +11,8 @@
 
 // ---------------- MAIN ----------
 int main() {
-    std::vector<std::string> tracked_goods = {"food", "wood"};
-    std::vector<std::string> tracked_roles = {"farmer", "woodcutter"};
+    std::vector<std::string> tracked_goods = {"food", "wood", "fertilizer"};
+    std::vector<std::string> tracked_roles = {"farmer", "woodcutter", "composter"};
 
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 gen(rd()); // seed the generator
@@ -20,11 +20,11 @@ int main() {
     std::uniform_int_distribution<> random_job(0, (int) tracked_roles.size()); // define the range
 
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = 50;
+    int NUM_TICKS = 100;
 
     double STARTING_MONEY = 20.0;
-    int SAMPLE_ID = 0;
-    int SAMPLE_ID2 = 2;
+    int SAMPLE_ID = 1;
+    int SAMPLE_ID2 = 3;
 
 
     std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
@@ -52,19 +52,23 @@ int main() {
     }
 
     // Setup scenario
-    auto food = Commodity("food");
-    auto wood = Commodity("wood");
-    auto tools = Commodity("tools");
+    auto food = Commodity("food", 0.5);
+    auto wood = Commodity("wood", 1.0);
+    auto tools = Commodity("tools", 1.0);
+    auto fertilizer = Commodity("fertilizer", 0.1);
 
     std::vector<std::vector<std::pair<double, double>>> supply_metrics;
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::INFO);
     auction_house->RegisterCommodity(food);
     auction_house->RegisterCommodity(wood);
     auction_house->RegisterCommodity(tools);
+    auction_house->RegisterCommodity(fertilizer);
+
 
     std::vector<std::shared_ptr<AITrader>> all_traders;
-    std::vector<InventoryItem> DefaultFarmerInv{{food, 0, 0}, {wood, 2, 3}, {tools, 1, 1}};
-    std::vector<InventoryItem> DefaultWoodcutterInv{{food, 2, 3}, {wood, 0, 0}, {tools, 1, 1}};
+    std::vector<InventoryItem> DefaultFarmerInv{{food, 0, 0},{fertilizer,1,3},  {wood, 1, 3}, {tools, 1, 1}};
+    std::vector<InventoryItem> DefaultWoodcutterInv{{food, 1, 3}, {wood, 0, 0}, {tools, 1, 1}};
+    std::vector<InventoryItem> DefaultComposterInv{{food, 1, 3}, {fertilizer,0,0}};
 
     int max_id = 1;
     std::shared_ptr<AITrader> new_trader;
@@ -75,10 +79,13 @@ int main() {
         new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", random_money(gen), 20, DefaultWoodcutterInv, Log::WARN);
         all_traders.push_back(new_trader);
         max_id++;
+        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleComposter>(), "composter", random_money(gen), 20, DefaultComposterInv, Log::WARN);
+        all_traders.push_back(new_trader);
+        max_id++;
     }
 
-    all_traders[SAMPLE_ID]->logger.verbosity = Log::DEBUG;
-    all_traders[SAMPLE_ID2]->logger.verbosity = Log::DEBUG;
+//    all_traders[SAMPLE_ID]->logger.verbosity = Log::DEBUG;
+//    all_traders[SAMPLE_ID2]->logger.verbosity = Log::DEBUG;
 
     for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick++) {
         std::map<std::string, int> num_alive;
@@ -93,12 +100,16 @@ int main() {
                 num_alive[all_traders[i]->class_name] += 1;
             } else {
                 //trader died, add new trader?
-                if (random_job(gen) == 0) {
+                int new_job = random_job(gen);
+                if (new_job == 0) {
                     // WOODCUTTER
                     all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", random_money(gen), 20, DefaultWoodcutterInv, Log::WARN);
-                } else {
+                } else if (new_job == 1){
                     //FARMER
                     all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", random_money(gen), 20, DefaultFarmerInv, Log::WARN);
+                } else if (new_job == 2) {
+                    //COMPOSTER
+                    all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleComposter>(), "composter", random_money(gen), 20, DefaultComposterInv, Log::WARN);
                 }
 
                 max_id++;
