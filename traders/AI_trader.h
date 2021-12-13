@@ -133,7 +133,6 @@ void AITrader::FlushOutbox() {
         logger.Log(Log::DEBUG, "Flushing outbox");
         while (!outbox.empty()) {
             auto& outgoing = outbox.back();
-            outbox.pop_back();
             // Trader can currently only talk to auction houses (not other traders)
             if (outgoing.first != auction_house.lock()->id) {
                 logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
@@ -141,6 +140,7 @@ void AITrader::FlushOutbox() {
             }
             logger.LogSent(outgoing.first, Log::DEBUG, outgoing.second.ToString());
             auction_house.lock()->ReceiveMessage(std::move(outgoing.second));
+            outbox.pop_back();
         }
         logger.Log(Log::DEBUG, "Flush finished");
 }
