@@ -43,6 +43,8 @@ public:
 
 class AITrader : public Trader {
 private:
+    double MIN_PRICE = 0.01;
+
     bool initialised = false;
 
     std::optional<std::shared_ptr<Role>> logic;
@@ -330,7 +332,7 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 2% profit
-    double ask_price = _inventory.QueryCost(commodity) * 1.02;
+    double ask_price = std::max(MIN_PRICE, QueryCost(commodity) * 1.02);
 
     int quantity = DetermineSaleQuantity(commodity);
     //can't sell less than limit
