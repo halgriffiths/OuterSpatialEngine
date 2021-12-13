@@ -19,21 +19,38 @@ int main() {
     int SAMPLE_ID = 0;
     int SAMPLE_ID2 = 1;
 
-    std::vector<std::pair<double, double>> avg_food_price, avg_food_trades, avg_food_asks, avg_food_bids;
-    std::vector<std::pair<double, double>> avg_wood_price, avg_wood_trades, avg_wood_asks, avg_wood_bids;
+    std::vector<std::string> tracked_goods = {"food", "wood", "tools"};
+    std::vector<std::string> tracked_roles = {"farmer", "woodcutter"};
+    std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics, avg_trades_metrics, avg_asks_metrics, avg_bids_metrics;
 
-    std::vector<std::pair<double, double>> num_alive_farmers, num_alive_woodcutters;
+    std::map<std::string, std::vector<std::pair<double, double>>> num_alive_metrics;
 
-    std::vector<std::pair<double, double>> net_supply_food, net_supply_wood, net_supply_tools;
+    std::map<std::string, std::vector<std::pair<double, double>>> sample1_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> sample2_metrics;
 
-    std::vector<std::pair<double, double>> sample_money, sample_food, sample_wood, sample_tools;
-    std::vector<std::pair<double, double>> sample2_money, sample2_food, sample2_wood, sample2_tools;
+    sample1_metrics["money"] = {};
+    sample2_metrics["money"] = {};
+    for (auto& good : tracked_goods) {
+        net_supply_metrics[good] = {};
+        avg_price_metrics[good] = {};
+        avg_trades_metrics[good] = {};
+        avg_asks_metrics[good] = {};
+        avg_bids_metrics[good] = {};
+
+        sample1_metrics[good] = {};
+        sample2_metrics[good] = {};
+    }
+    for (auto& role : tracked_roles) {
+        num_alive_metrics[role] = {};
+    }
 
     // Setup scenario
     auto food = Commodity("food");
     auto wood = Commodity("wood");
     auto tools = Commodity("tools");
 
+    std::vector<std::vector<std::pair<double, double>>> supply_metrics;
     auto auction_house = std::make_shared<AuctionHouse>(0, Log::DEBUG);
     auction_house->RegisterCommodity(food);
     auction_house->RegisterCommodity(wood);
@@ -58,17 +75,16 @@ int main() {
     all_traders[SAMPLE_ID2]->logger.verbosity = Log::DEBUG;
 
     for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick++) {
-        int num_farmers = 0;
-        int num_woodcutters = 0;
+        std::map<std::string, int> num_alive;
+        for (auto& role : tracked_roles) {
+            num_alive[role] = 0;
+        }
 
         for (int i = 0; i < all_traders.size(); i++) {
             if (!all_traders[i]->destroyed) {
                 all_traders[i]->Tick();
-                if (all_traders[i]->class_name == "farmer") {
-                    num_farmers++;
-                } else if (all_traders[i]->class_name == "woodcutter") {
-                    num_woodcutters++;
-                }
+
+                num_alive[all_traders[i]->class_name] += 1;
             } else {
                 //trader died, add new trader?
                 if (rand() % 2) {
@@ -86,36 +102,27 @@ int main() {
         auction_house->Tick();
         std::cout << "\n ------ END OF TICK " << curr_tick << " -----\n";
 
-
-        num_alive_farmers.emplace_back(curr_tick, num_farmers);
-        num_alive_woodcutters.emplace_back(curr_tick, num_woodcutters);
         // collect metrics
-        avg_food_price.emplace_back(curr_tick, auction_house->AverageHistoricalPrice("food", 1));
-        avg_food_trades.emplace_back(curr_tick, auction_house->AverageHistoricalTrades("food", 1));
-        avg_food_asks.emplace_back(curr_tick, auction_house->AverageHistoricalAsks("food", 1));
-        avg_food_bids.emplace_back(curr_tick, auction_house->AverageHistoricalBids("food", 1));
+        for (auto& good : tracked_goods) {
+            double asks = auction_house->AverageHistoricalAsks(good, 1);
+            double bids = auction_house->AverageHistoricalBids(good, 1);
 
-        avg_wood_price.emplace_back(curr_tick, auction_house->AverageHistoricalPrice("wood", 1));
-        avg_wood_trades.emplace_back(curr_tick, auction_house->AverageHistoricalTrades("wood", 1));
-        avg_wood_asks.emplace_back(curr_tick, auction_house->AverageHistoricalAsks("wood", 1));
-        avg_wood_bids.emplace_back(curr_tick, auction_house->AverageHistoricalBids("wood", 1));
+            avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalPrice(good, 1));
+            avg_trades_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalTrades(good, 1));
+            avg_asks_metrics[good].emplace_back(curr_tick, asks);
+            avg_bids_metrics[good].emplace_back(curr_tick, bids);
 
-        double net_food_supply = auction_house->AverageHistoricalAsks("food", 1) - auction_house->AverageHistoricalBids("food", 1);
-        net_supply_food.emplace_back(curr_tick, net_food_supply);
-        double net_wood_supply = auction_house->AverageHistoricalAsks("wood", 1) - auction_house->AverageHistoricalBids("wood", 1);
-        net_supply_wood.emplace_back(curr_tick, net_wood_supply);
-        double net_tools_supply = auction_house->AverageHistoricalAsks("tools", 1) - auction_house->AverageHistoricalBids("tools", 1);
-        net_supply_tools.emplace_back(curr_tick, net_tools_supply);
+            net_supply_metrics[good].emplace_back(curr_tick, asks-bids);
 
-        sample_money.emplace_back(curr_tick, all_traders[SAMPLE_ID]->money);
-        sample_food.emplace_back(curr_tick, all_traders[SAMPLE_ID]->Query("food"));
-        sample_wood.emplace_back(curr_tick, all_traders[SAMPLE_ID]->Query("wood"));
-        sample_tools.emplace_back(curr_tick, all_traders[SAMPLE_ID]->Query("tools"));
+            sample1_metrics[good].emplace_back(curr_tick, all_traders[SAMPLE_ID]->Query(good));
+            sample2_metrics[good].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->Query(good));
+        }
+        for (auto& role : tracked_roles) {
+            num_alive_metrics[role].emplace_back(curr_tick, num_alive[role]);
+        }
 
-        sample2_money.emplace_back(curr_tick, all_traders[SAMPLE_ID2]->money);
-        sample2_food.emplace_back(curr_tick, all_traders[SAMPLE_ID2]->Query("food"));
-        sample2_wood.emplace_back(curr_tick, all_traders[SAMPLE_ID2]->Query("wood"));
-        sample2_tools.emplace_back(curr_tick, all_traders[SAMPLE_ID2]->Query("tools"));
+        sample1_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID]->money);
+        sample2_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->money);
     }
 
 
@@ -126,41 +133,43 @@ int main() {
     gp << "set offsets 0, 0, 1, 0\n";
     gp << "set title 'Prices'\n";
     auto plots = gp.plotGroup();
-    plots.add_plot1d(avg_food_price, "with lines title 'food'");
-    plots.add_plot1d(avg_wood_price, "with lines title 'wood'");
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
+    }
     gp << plots;
 
     gp << "set title 'Num successful trades'\n";
     plots = gp.plotGroup();
-    plots.add_plot1d(avg_food_trades, "with lines title 'food'");
-    plots.add_plot1d(avg_wood_trades, "with lines title 'wood'");
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(avg_trades_metrics[good], "with lines title '"+good+std::string("'"));
+    }
     gp << plots;
 
     gp << "set title 'Demographics'\n";
     plots = gp.plotGroup();
-    plots.add_plot1d(num_alive_farmers, "with lines title 'Farmers'");
-    plots.add_plot1d(num_alive_woodcutters, "with lines title 'Woodcutters'");
+    for (auto& role : tracked_roles) {
+        plots.add_plot1d(num_alive_metrics[role], "with lines title '"+role+std::string("'"));
+    }
     gp << plots;
 
     gp << "set title 'Net supply'\n";
     plots = gp.plotGroup();
-    plots.add_plot1d(net_supply_food, "with lines title 'food'");
-    plots.add_plot1d(net_supply_wood, "with lines title 'wood'");
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(net_supply_metrics[good], "with lines title '"+good+std::string("'"));
+    }
     gp << plots;
 
     gp << "set title 'Sample Trader Detail - 1'\n";
     plots = gp.plotGroup();
-    plots.add_plot1d(sample_money, "with lines title 'Money'");
-    plots.add_plot1d(sample_food, "with lines title 'Food'");
-    plots.add_plot1d(sample_wood, "with lines title 'Wood'");
-    plots.add_plot1d(sample_tools, "with lines title 'Tools'");
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(sample1_metrics[good], "with lines title '"+good+std::string("'"));
+    }
     gp << plots;
 
     gp << "set title 'Sample Trader Detail - 2'\n";
     plots = gp.plotGroup();
-    plots.add_plot1d(sample2_money, "with lines title 'Money'");
-    plots.add_plot1d(sample2_food, "with lines title 'Food'");
-    plots.add_plot1d(sample2_wood, "with lines title 'Wood'");
-    plots.add_plot1d(sample2_tools, "with lines title 'Tools'");
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(sample2_metrics[good], "with lines title '"+good+std::string("'"));
+    }
     gp << plots;
 }
