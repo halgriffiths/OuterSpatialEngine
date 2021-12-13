@@ -11,16 +11,22 @@
 
 // ---------------- MAIN ----------
 int main() {
+    std::vector<std::string> tracked_goods = {"food", "wood"};
+    std::vector<std::string> tracked_roles = {"farmer", "woodcutter"};
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 gen(rd()); // seed the generator
+    std::uniform_real_distribution<> random_money(10, 30); // define the range
+    std::uniform_int_distribution<> random_job(0, (int) tracked_roles.size()); // define the range
 
     int NUM_TRADERS_EACH_TYPE = 10;
     int NUM_TICKS = 50;
 
     double STARTING_MONEY = 20.0;
     int SAMPLE_ID = 0;
-    int SAMPLE_ID2 = 1;
+    int SAMPLE_ID2 = 2;
 
-    std::vector<std::string> tracked_goods = {"food", "wood"};
-    std::vector<std::string> tracked_roles = {"farmer", "woodcutter"};
+
     std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics, avg_trades_metrics, avg_asks_metrics, avg_bids_metrics;
 
@@ -63,10 +69,10 @@ int main() {
     int max_id = 1;
     std::shared_ptr<AITrader> new_trader;
     for (int i = 0; i < NUM_TRADERS_EACH_TYPE; i++) {
-        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", STARTING_MONEY, 20, DefaultFarmerInv, Log::WARN);
+        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", random_money(gen), 20, DefaultFarmerInv, Log::WARN);
         all_traders.push_back(new_trader);
         max_id++;
-        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", STARTING_MONEY, 20, DefaultWoodcutterInv, Log::WARN);
+        new_trader = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", random_money(gen), 20, DefaultWoodcutterInv, Log::WARN);
         all_traders.push_back(new_trader);
         max_id++;
     }
@@ -87,12 +93,12 @@ int main() {
                 num_alive[all_traders[i]->class_name] += 1;
             } else {
                 //trader died, add new trader?
-                if (rand() % 2) {
+                if (random_job(gen) == 0) {
                     // WOODCUTTER
-                    all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", STARTING_MONEY, 20, DefaultWoodcutterInv, Log::WARN);
+                    all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleWoodcutter>(), "woodcutter", random_money(gen), 20, DefaultWoodcutterInv, Log::WARN);
                 } else {
                     //FARMER
-                    all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", STARTING_MONEY, 20, DefaultFarmerInv, Log::WARN);
+                    all_traders[i] = CreateAndRegister(max_id, auction_house, std::make_shared<RoleFarmer>(), "farmer", random_money(gen), 20, DefaultFarmerInv, Log::WARN);
                 }
 
                 max_id++;
