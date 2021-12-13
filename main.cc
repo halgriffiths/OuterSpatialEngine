@@ -57,8 +57,8 @@ int main() {
     auction_house->RegisterCommodity(tools);
 
     std::vector<std::shared_ptr<AITrader>> all_traders;
-    std::vector<InventoryItem> DefaultFarmerInv{{food, 0, 0}, {wood, 1, 3}, {tools, 1, 1}};
-    std::vector<InventoryItem> DefaultWoodcutterInv{{food, 1, 3}, {wood, 0, 0}, {tools, 1, 1}};
+    std::vector<InventoryItem> DefaultFarmerInv{{food, 0, 0}, {wood, 2, 3}, {tools, 1, 1}};
+    std::vector<InventoryItem> DefaultWoodcutterInv{{food, 2, 3}, {wood, 0, 0}, {tools, 1, 1}};
 
     int max_id = 1;
     std::shared_ptr<AITrader> new_trader;

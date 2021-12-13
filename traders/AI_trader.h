@@ -44,7 +44,6 @@ public:
 class AITrader : public Trader {
 private:
     double MIN_PRICE = 0.01;
-
     bool initialised = false;
 
     std::optional<std::shared_ptr<Role>> logic;
@@ -58,6 +57,7 @@ private:
     int internal_lookback = 10; //history range (num trades)
 
 public:
+    double IDLE_TAX = 2;
     std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
     double money;
 
@@ -117,7 +117,7 @@ public:
     void UpdatePriceModelFromAsk(const AskResult& result);
 
     void GenerateOffers(const std::string& commodity);
-    BidOffer CreateBid(const std::string& commodity, int min_limit, int max_limit);
+    BidOffer CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation = 0);
     AskOffer CreateAsk(const std::string& commodity, int min_limit);
 
     int DetermineBuyQuantity(const std::string& commodity);
@@ -311,24 +311,24 @@ void AITrader::GenerateOffers(const std::string& commodity) {
         {
             int min_limit = (_inventory.Query(commodity) == 0) ? 1 : 0;
             logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
-            auto offer = CreateBid(commodity, min_limit, max_limit);
+
+            double desperation = std::pow(1 - (0.1 * money / IDLE_TAX), shortage);
+            auto offer = CreateBid(commodity, min_limit, max_limit, desperation);
             if (offer.quantity > 0) {
                 SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
             }
         }
     }
 }
-BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit) {
-    // Bids are sold at seller's price, so this value is only used as an estimate for the trader to decide quantities
+BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation) {
     double bid_price = (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
-    // The maximum price willing to pay (hardcoded for now)
-    double max_price = money;
-
+    //scale between fair price and max price (current money - 1 tax day) based on need
+    bid_price += ((money - IDLE_TAX) - bid_price)*desperation;
     int ideal = DetermineBuyQuantity(commodity);
 
     //can't buy more than limit
     int quantity = std::max(std::min(ideal, max_limit), min_limit);
-    return BidOffer(id, commodity, quantity, bid_price, max_price);
+    return BidOffer(id, commodity, quantity, bid_price);
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 2% profit
@@ -386,6 +386,9 @@ void AITrader::Destroy() {
     auction_house.reset();
 }
 void AITrader::Tick() {
+    if (destroyed) {
+        return;
+    }
     money_last_round = money;
     FlushInbox();
     if (initialised) {
@@ -448,7 +451,7 @@ public:
         bool too_much_food = (3*trader.GetIdeal("food") < trader.Query("food"));
         // Stop producing if you have way too many goods (3x ideal)
         if (!has_wood) {
-            LoseMoney(trader, 2); //$2 idleness fine
+            LoseMoney(trader, trader.IDLE_TAX);
             return;
         }
         if (has_tools) {
@@ -471,7 +474,7 @@ public:
         bool too_much_wood = (3*trader.GetIdeal("wood") < trader.Query("wood"));
         // Stop producing if you have way too many goods (3x ideal) and some money (5 days worth)
         if (!has_food) {
-            LoseMoney(trader, 2);//$2 idleness fine
+            LoseMoney(trader, trader.IDLE_TAX);//$2 idleness fine
             return;
         }
 
