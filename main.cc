@@ -9,6 +9,77 @@
 #include <vector>
 #include <boost/bind.hpp>
 
+
+void plot_verbose(std::vector<std::string>& tracked_goods,
+                  std::vector<std::string>& tracked_roles,
+                  std::map<std::string, std::vector<std::pair<double, double>>>& avg_price_metrics,
+                  std::map<std::string, std::vector<std::pair<double, double>>>& avg_trades_metrics,
+                  std::map<std::string, std::vector<std::pair<double, double>>>& num_alive_metrics,
+                  std::map<std::string, std::vector<std::pair<double, double>>>& net_supply_metrics,
+                  std::map<std::string, std::vector<std::pair<double, double>>>& sample1_metrics,
+                  std::map<std::string, std::vector<std::pair<double, double>>>& sample2_metrics) {
+    // Plot results
+    Gnuplot gp;
+    gp << "set multiplot layout 3,2\n";
+    gp << "set offsets 0, 0, 1, 0\n";
+    gp << "set title 'Prices'\n";
+    auto plots = gp.plotGroup();
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
+    }
+    gp << plots;
+
+    gp << "set title 'Num successful trades'\n";
+    plots = gp.plotGroup();
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(avg_trades_metrics[good], "with lines title '"+good+std::string("'"));
+    }
+    gp << plots;
+
+    gp << "set title 'Demographics'\n";
+    plots = gp.plotGroup();
+    for (auto& role : tracked_roles) {
+        plots.add_plot1d(num_alive_metrics[role], "with lines title '"+role+std::string("'"));
+    }
+    gp << plots;
+
+    gp << "set title 'Net supply'\n";
+    plots = gp.plotGroup();
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(net_supply_metrics[good], "with lines title '"+good+std::string("'"));
+    }
+    gp << plots;
+
+    gp << "set title 'Sample Trader Detail - 1'\n";
+    plots = gp.plotGroup();
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(sample1_metrics[good], "with lines title '"+good+std::string("'"));
+    }
+    plots.add_plot1d(sample1_metrics["money"], "with lines title 'money'");
+    gp << plots;
+
+    gp << "set title 'Sample Trader Detail - 2'\n";
+    plots = gp.plotGroup();
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(sample2_metrics[good], "with lines title '"+good+std::string("'"));
+    }
+    plots.add_plot1d(sample2_metrics["money"], "with lines title 'money'");
+    gp << plots;
+}
+
+void plot_terse(std::vector<std::string>& tracked_goods,
+                  std::map<std::string, std::vector<std::pair<double, double>>>& avg_price_metrics) {
+    // Plot results
+    Gnuplot gp;
+    gp << "set term be 180 65\n";
+    gp << "set offsets 0, 0, 1, 0\n";
+    gp << "set title 'Prices'\n";
+    auto plots = gp.plotGroup();
+    for (auto& good : tracked_goods) {
+        plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
+    }
+    gp << plots;
+}
 // ---------------- MAIN ----------
 int main() {
 
@@ -130,8 +201,8 @@ int main() {
     fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
     fake_trader->Tick();
 
-    fake_trader->RegisterShortage("wood", 1, 120, 20);
-    fake_trader->RegisterSurplus("metal", -0.9, 320, 20);
+    fake_trader->RegisterShortage("ore", 3, 120, 20);
+    fake_trader->RegisterSurplus("wood", -0.9, 320, 20);
     max_id++;
 
     for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick++) {
@@ -154,14 +225,14 @@ int main() {
         }
 
         auction_house->Tick();
-        std::cout << "\n ------ END OF TICK " << curr_tick << " -----\n";
+//        std::cout << "\n ------ END OF TICK " << curr_tick << " -----\n";
 
         // collect metrics
         for (auto& good : tracked_goods) {
             double asks = auction_house->AverageHistoricalAsks(good, 1);
             double bids = auction_house->AverageHistoricalBids(good, 1);
 
-            avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalMidPrice(good, 1));
+            avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalMidPrice(good, 5));
             avg_trades_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalTrades(good, 1));
             avg_asks_metrics[good].emplace_back(curr_tick, asks);
             avg_bids_metrics[good].emplace_back(curr_tick, bids);
@@ -187,52 +258,13 @@ int main() {
         }
     }
 
-
-    // Plot results
-    Gnuplot gp;
-    gp << "set multiplot layout 2,2\n";
-    gp << "set offsets 0, 0, 1, 0\n";
-    gp << "set title 'Prices'\n";
-    auto plots = gp.plotGroup();
-    for (auto& good : tracked_goods) {
-        plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
-    }
-    gp << plots;
-
-    gp << "set title 'Num successful trades'\n";
-    plots = gp.plotGroup();
-    for (auto& good : tracked_goods) {
-        plots.add_plot1d(avg_trades_metrics[good], "with lines title '"+good+std::string("'"));
-    }
-    gp << plots;
-
-    gp << "set title 'Demographics'\n";
-    plots = gp.plotGroup();
-    for (auto& role : tracked_roles) {
-        plots.add_plot1d(num_alive_metrics[role], "with lines title '"+role+std::string("'"));
-    }
-    gp << plots;
-
-    gp << "set title 'Net supply'\n";
-    plots = gp.plotGroup();
-    for (auto& good : tracked_goods) {
-        plots.add_plot1d(net_supply_metrics[good], "with lines title '"+good+std::string("'"));
-    }
-    gp << plots;
-
-//    gp << "set title 'Sample Trader Detail - 1'\n";
-//    plots = gp.plotGroup();
-//    for (auto& good : tracked_goods) {
-//        plots.add_plot1d(sample1_metrics[good], "with lines title '"+good+std::string("'"));
-//    }
-//    plots.add_plot1d(sample1_metrics["money"], "with lines title 'money'");
-//    gp << plots;
-//
-//    gp << "set title 'Sample Trader Detail - 2'\n";
-//    plots = gp.plotGroup();
-//    for (auto& good : tracked_goods) {
-//        plots.add_plot1d(sample2_metrics[good], "with lines title '"+good+std::string("'"));
-//    }
-//    plots.add_plot1d(sample2_metrics["money"], "with lines title 'money'");
-//    gp << plots;
+    plot_terse(tracked_goods,avg_price_metrics);
+//    plot_verbose(tracked_goods,
+//                      tracked_roles,
+//                      avg_price_metrics,
+//                      avg_trades_metrics,
+//                      num_alive_metrics,
+//                      net_supply_metrics,
+//                      sample1_metrics,
+//                      sample2_metrics);
 }
