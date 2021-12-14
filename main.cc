@@ -13,7 +13,7 @@
 int main() {
 
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = 1000;
+    int NUM_TICKS = 500;
 //    int NUM_TICKS_PER_STEP = 10;
     double STARTING_MONEY = 20.0;
     int SAMPLE_ID = 1;
@@ -89,7 +89,7 @@ int main() {
     }
 
 
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::INFO);
+    auto auction_house = std::make_shared<AuctionHouse>(0, Log::WARN);
     for (auto& item : comm) {
         auction_house->RegisterCommodity(item.second);
     }
@@ -126,13 +126,20 @@ int main() {
 
 //    all_traders[SAMPLE_ID]->logger.verbosity = Log::DEBUG;
 //    all_traders[SAMPLE_ID2]->logger.verbosity = Log::DEBUG;
+    auto fake_trader = std::make_shared<FakeTrader>(max_id, auction_house);
+    fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
+    fake_trader->Tick();
+
+    fake_trader->RegisterShortage("wood", 1, 120, 20);
+    fake_trader->RegisterSurplus("metal", -0.9, 320, 20);
+    max_id++;
 
     for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick++) {
         std::map<std::string, int> num_alive;
         for (auto& role : tracked_roles) {
             num_alive[role] = 0;
         }
-
+        fake_trader->Tick();
         for (int i = 0; i < all_traders.size(); i++) {
             if (!all_traders[i]->destroyed) {
                 all_traders[i]->Tick();
