@@ -332,8 +332,8 @@ private:
                 ask_result.UpdateWithTrade(quantity_traded, seller_price);
 
                 // update per-tick metrics
-
-                avg_price_this_tick = (avg_price_this_tick*units_traded_this_tick + buyer_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
+                double clearing_price = (seller_price + buyer_price) / 2;
+                avg_price_this_tick = (avg_price_this_tick*units_traded_this_tick + clearing_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
 
                 units_traded_this_tick += quantity_traded;
                 money_traded_this_tick += quantity_traded*buyer_price;
