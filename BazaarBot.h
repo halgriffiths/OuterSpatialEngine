@@ -13,6 +13,7 @@
 #include "metrics/metrics.h"
 #include "traders/AI_trader.h"
 
+#include "traders/roles.h"
 
 std::shared_ptr<AITrader> CreateAndRegisterBasic(int id,
                                                     const std::vector<std::pair<Commodity, int>>& inv,
