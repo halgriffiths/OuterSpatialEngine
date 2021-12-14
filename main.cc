@@ -80,6 +80,20 @@ void plot_terse(std::vector<std::string>& tracked_goods,
     }
     gp << plots;
 }
+
+void plot_terse_tofile(std::vector<std::string>& tracked_goods,
+                std::map<std::string, std::vector<std::pair<double, double>>>& avg_price_metrics) {
+    Gnuplot gp(std::fopen("plot.gnu", "w"));
+    gp << "set term dumb 180 65\n";
+    gp << "set offsets 0, 0, 1, 0\n";
+    gp << "set title 'Prices'\n";
+    auto plots = gp.plotGroup();
+    gp << "plot";
+    for (auto& good : tracked_goods) {
+        gp << gp.file1d(avg_price_metrics["food"], good+".dat") << "with lines title '"+good+std::string("',");
+    }
+    gp << std::endl; //flush result
+}
 // ---------------- MAIN ----------
 int main() {
 
