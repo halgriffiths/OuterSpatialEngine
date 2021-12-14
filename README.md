@@ -4,6 +4,12 @@ The original repo was based on a paper which had some serious issues, many of wh
  - Original repo: https://github.com/larsiusprime/bazaarBot
  - C# port: https://github.com/Vibr8gKiwi/bazaarBot2
 
+# Example output
+Simulating 100 traders for 500 ticks:
+| Qt plot  |  ASCII plot   |
+|----------|:-------------:|
+| ![qt plot](example_qt_plot.png) |  ![ascii plot](example_ASCII_plot.png) |
+
 # Dependencies
 1. Install deps:
  (eg: `sudo apt-get install cmake gnuplot libboost-all-dev `)
