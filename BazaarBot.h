@@ -12,7 +12,7 @@
 #include "common/messages.h"
 #include "metrics/metrics.h"
 #include "traders/AI_trader.h"
-
+#include "traders/fake_trader.h"
 #include "traders/roles.h"
 
 std::shared_ptr<AITrader> CreateAndRegisterBasic(int id,
