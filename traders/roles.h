@@ -74,4 +74,63 @@ public:
         Produce(trader, "fertilizer", 1);
     }
 };
+
+class RoleBlacksmith : public Role {
+    void TickRole(AITrader& trader) override {
+        bool has_food = (0 < trader.Query("food"));
+        int amount_metal = trader.Query("metal");
+
+        if (!has_food) {
+            LoseMoney(trader, trader.IDLE_TAX);
+        }
+
+        Consume(trader, "food", 1);
+
+        if (amount_metal > 0) {
+            Consume(trader, "metal", amount_metal);
+            Produce(trader, "tools", amount_metal);
+        }
+    };
+};
+
+class RoleMiner : public Role {
+    void TickRole(AITrader& trader) override {
+        bool has_food = (0 < trader.Query("food"));
+        bool has_tools = (0 < trader.Query("tools"));
+
+        if (!has_food) {
+            LoseMoney(trader, trader.IDLE_TAX);
+        }
+        Consume(trader, "food", 1);
+        if (has_tools) {
+            Consume(trader, "tools", 1, 0.1);
+            Produce(trader, "ore", 4);
+        } else {
+            Produce(trader, "ore", 2);
+        }
+    };
+};
+
+class RoleRefiner : public Role {
+    void TickRole(AITrader& trader) override {
+        bool has_food = (0 < trader.Query("food"));
+        bool has_tools = (0 < trader.Query("tools"));
+        int amount_ore = trader.Query("ore");
+        if (!has_food) {
+            LoseMoney(trader, trader.IDLE_TAX);
+        }
+        Consume(trader, "food", 1);
+
+        if (has_tools) {
+            Consume(trader, "tools", 1, 0.1);
+            Consume(trader, "ore", amount_ore);
+            Produce(trader, "metal", amount_ore);
+        } else {
+            //convert up to 2 ore into metal if no tools
+            int quantity = std::min(amount_ore, 2);
+            Consume(trader, "ore", quantity);
+            Produce(trader, "metal", quantity);
+        }
+    };
+};
 #endif//CPPBAZAARBOT_ROLES_H
