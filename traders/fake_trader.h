@@ -44,7 +44,7 @@ struct OngoingSurplus {
 class FakeTrader : public Trader {
 private:
     std::weak_ptr<AuctionHouse> auction_house;
-
+    int lookback = 20;
     double LOW_PRICE = 0.2;
     double HIGH_PRICE = 10;
 
@@ -132,13 +132,14 @@ void FakeTrader::TriggerShortage(OngoingShortage& shortage) {
     }
 
     if (shortage.start_tick == ticks) {
-        shortage.base_price = auction_house.lock()->AverageHistoricalBuyPrice(shortage.commodity, 10);
+        shortage.base_price = auction_house.lock()->AverageHistoricalBuyPrice(shortage.commodity, lookback);
     }
     // % through event
     double progress = double (ticks - shortage.start_tick)/shortage.duration;
     double price_distortion = 1 + shortage.severity*std::exp(-(4*progress - 2)*(4*progress - 2));
 
     double bid_price = shortage.base_price * price_distortion;
+    bid_price = std::min(bid_price, HIGH_PRICE);
     auto offer = BidOffer(id, shortage.commodity, 50, bid_price);
     SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
 }
@@ -149,14 +150,15 @@ void FakeTrader::TriggerSurplus(OngoingSurplus& surplus) {
     }
 
     if (surplus.start_tick == ticks) {
-        surplus.base_price = auction_house.lock()->AverageHistoricalBuyPrice(surplus.commodity, 10);
+        surplus.base_price = auction_house.lock()->AverageHistoricalBuyPrice(surplus.commodity, lookback);
     }
     // % through event
     double progress = double (ticks - surplus.start_tick)/surplus.duration;
     double price_distortion = 1 + surplus.severity*std::exp(-(4*progress - 2)*(4*progress - 2));
 
-    double bid_price = surplus.base_price * price_distortion;
-    auto offer = AskOffer(id, surplus.commodity, 50, bid_price);
+    double ask_price = surplus.base_price * price_distortion;
+    ask_price = std::max(ask_price, LOW_PRICE);
+    auto offer = AskOffer(id, surplus.commodity, 50, ask_price);
     SendMessage(*Message(id).AddAskOffer(offer), auction_house.lock()->id);
 }
 #endif//CPPBAZAARBOT_FAKE_TRADER_H
