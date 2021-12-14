@@ -139,6 +139,10 @@ public:
         logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id));
         known_traders.erase(message.sender_id);
     }
+
+    double StdDev(const std::string& commodity) {
+        return history.buy_prices.variance(commodity);
+    }
     double AverageHistoricalBuyPrice(const std::string& commodity, int window) {
         return history.buy_prices.average(commodity, window);
     }

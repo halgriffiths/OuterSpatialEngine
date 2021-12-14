@@ -60,6 +60,18 @@ public:
         return total/range;
     }
 
+    double variance(const std::string& name) {
+        double sum = std::accumulate(std::begin(log[name]), std::end(log[name]), 0.0);
+        double m =  sum / log[name].size();
+
+        double accum = 0.0;
+        std::for_each (std::begin(log[name]), std::end(log[name]), [&](const double d) {
+          accum += (d - m) * (d - m);
+        });
+
+        return sqrt(accum / (log[name].size()-1));
+    }
+
 };
 
 class History{

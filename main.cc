@@ -9,6 +9,7 @@
 #include <vector>
 #include <boost/bind.hpp>
 
+#include <iomanip>
 
 void plot_verbose(std::vector<std::string>& tracked_goods,
                   std::vector<std::string>& tracked_roles,
@@ -262,6 +263,18 @@ int main() {
 
         sample1_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID]->money);
         sample2_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->money);
+    }
+
+    std::cout << "Simulated " << NUM_TICKS << " with " << all_traders.size() << " agents." << std::endl;
+    std::cout << "Overall statistics" << std::endl;
+
+
+    std::cout << std::fixed;
+    std::cout << std::setprecision(2);
+    for (auto& good : tracked_goods) {
+        std::cout << "\t" << good << ": " << std::endl;
+        std::cout << "\t\tMean price: $" << auction_house->AverageHistoricalBuyPrice(good, NUM_TICKS) << std::endl;
+        std::cout << "\t\tVariance: $" << auction_house->StdDev(good) << std::endl;
     }
     int richest_index = 0;
     int max_cash = 0;
