@@ -120,7 +120,7 @@ public:
     BidOffer CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation = 0);
     AskOffer CreateAsk(const std::string& commodity, int min_limit);
 
-    int DetermineBuyQuantity(const std::string& commodity);
+    int DetermineBuyQuantity(const std::string& commodity, double bid_price);
     int DetermineSaleQuantity(const std::string& commodity);
 
     std::pair<double, double> ObserveTradingRange(const std::string& commodity, int window);
@@ -328,7 +328,7 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     bid_price = bid_price * (1+desperation);
     bid_price = std::min(std::max(min_price, bid_price), max_price);
 
-    int ideal = DetermineBuyQuantity(commodity);
+    int ideal = DetermineBuyQuantity(commodity, bid_price);
 
     //can't buy more than limit
     int quantity = std::max(std::min(ideal, max_limit), min_limit);
@@ -344,8 +344,7 @@ AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     return AskOffer(id, commodity, quantity, ask_price);
 }
 
-int AITrader::DetermineBuyQuantity(const std::string& commodity) {
-    double avg_price = auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback);
+int AITrader::DetermineBuyQuantity(const std::string& commodity, double avg_price) {
     std::pair<double, double> range = ObserveTradingRange(commodity, internal_lookback);
     if (range.first == 0 && range.second == 0) {
         //uninitialised range
