@@ -78,7 +78,12 @@ public:
         //construct inv
         _inventory = Inventory(inv_capacity, starting_inv);
         for (const auto &item : starting_inv) {
-            double base_price = auction_house.lock()->AverageHistoricalPrice(item.name, external_lookback);
+            double base_price = 1;
+            if (item.name == "metals") {
+                base_price = 2;
+            } else if (item.name == "tools") {
+                base_price = 3;
+            }
             _observedTradingRange[item.name] = {base_price, base_price*3};
             _inventory.SetCost(item.name, base_price);
         }

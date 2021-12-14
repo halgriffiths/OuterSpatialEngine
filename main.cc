@@ -13,7 +13,7 @@
 int main() {
 
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = 100;
+    int NUM_TICKS = 1000;
 //    int NUM_TICKS_PER_STEP = 10;
     double STARTING_MONEY = 20.0;
     int SAMPLE_ID = 1;
