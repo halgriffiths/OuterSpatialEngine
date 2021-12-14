@@ -71,7 +71,7 @@ void plot_terse(std::vector<std::string>& tracked_goods,
                   std::map<std::string, std::vector<std::pair<double, double>>>& avg_price_metrics) {
     // Plot results
     Gnuplot gp;
-    gp << "set term be 180 65\n";
+    gp << "set term dumb 180 65\n";
     gp << "set offsets 0, 0, 1, 0\n";
     gp << "set title 'Prices'\n";
     auto plots = gp.plotGroup();
