@@ -21,7 +21,7 @@ void plot_verbose(std::vector<std::string>& tracked_goods,
                   std::map<std::string, std::vector<std::pair<double, double>>>& sample2_metrics) {
     // Plot results
     Gnuplot gp;
-    gp << "set multiplot layout 3,2\n";
+    gp << "set multiplot layout 2,2\n";
     gp << "set offsets 0, 0, 1, 0\n";
     gp << "set title 'Prices'\n";
     auto plots = gp.plotGroup();
@@ -51,21 +51,21 @@ void plot_verbose(std::vector<std::string>& tracked_goods,
     }
     gp << plots;
 
-    gp << "set title 'Sample Trader Detail - 1'\n";
-    plots = gp.plotGroup();
-    for (auto& good : tracked_goods) {
-        plots.add_plot1d(sample1_metrics[good], "with lines title '"+good+std::string("'"));
-    }
-    plots.add_plot1d(sample1_metrics["money"], "with lines title 'money'");
-    gp << plots;
-
-    gp << "set title 'Sample Trader Detail - 2'\n";
-    plots = gp.plotGroup();
-    for (auto& good : tracked_goods) {
-        plots.add_plot1d(sample2_metrics[good], "with lines title '"+good+std::string("'"));
-    }
-    plots.add_plot1d(sample2_metrics["money"], "with lines title 'money'");
-    gp << plots;
+//    gp << "set title 'Sample Trader Detail - 1'\n";
+//    plots = gp.plotGroup();
+//    for (auto& good : tracked_goods) {
+//        plots.add_plot1d(sample1_metrics[good], "with lines title '"+good+std::string("'"));
+//    }
+//    plots.add_plot1d(sample1_metrics["money"], "with lines title 'money'");
+//    gp << plots;
+//
+//    gp << "set title 'Sample Trader Detail - 2'\n";
+//    plots = gp.plotGroup();
+//    for (auto& good : tracked_goods) {
+//        plots.add_plot1d(sample2_metrics[good], "with lines title '"+good+std::string("'"));
+//    }
+//    plots.add_plot1d(sample2_metrics["money"], "with lines title 'money'");
+//    gp << plots;
 }
 
 void plot_terse(std::vector<std::string>& tracked_goods,
@@ -91,7 +91,7 @@ void plot_terse_tofile(std::vector<std::string>& tracked_goods,
     auto plots = gp.plotGroup();
     gp << "plot";
     for (auto& good : tracked_goods) {
-        gp << gp.file1d(avg_price_metrics["food"], good+".dat") << "with lines title '"+good+std::string("',");
+        gp << gp.file1d(avg_price_metrics[good], good+".dat") << "with lines title '"+good+std::string("',");
     }
     gp << std::endl; //flush result
 }
@@ -285,13 +285,14 @@ int main() {
         }
     }
 
-    plot_terse(tracked_goods,avg_price_metrics);
-//    plot_verbose(tracked_goods,
-//                      tracked_roles,
-//                      avg_price_metrics,
-//                      avg_trades_metrics,
-//                      num_alive_metrics,
-//                      net_supply_metrics,
-//                      sample1_metrics,
-//                      sample2_metrics);
+//    plot_terse(tracked_goods,avg_price_metrics);
+    plot_terse_tofile(tracked_goods,avg_price_metrics);
+    plot_verbose(tracked_goods,
+                      tracked_roles,
+                      avg_price_metrics,
+                      avg_trades_metrics,
+                      num_alive_metrics,
+                      net_supply_metrics,
+                      sample1_metrics,
+                      sample2_metrics);
 }
