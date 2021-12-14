@@ -154,7 +154,7 @@ int main() {
             double asks = auction_house->AverageHistoricalAsks(good, 1);
             double bids = auction_house->AverageHistoricalBids(good, 1);
 
-            avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalPrice(good, 1));
+            avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalMidPrice(good, 1));
             avg_trades_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalTrades(good, 1));
             avg_asks_metrics[good].emplace_back(curr_tick, asks);
             avg_bids_metrics[good].emplace_back(curr_tick, bids);

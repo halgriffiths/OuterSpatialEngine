@@ -143,8 +143,14 @@ public:
         logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id));
         known_traders.erase(message.sender_id);
     }
-    double AverageHistoricalPrice(const std::string& commodity, int window) {
-        return history.prices.average(commodity, window);
+    double AverageHistoricalBuyPrice(const std::string& commodity, int window) {
+        return history.buy_prices.average(commodity, window);
+    }
+    double AverageHistoricalSellPrice(const std::string& commodity, int window) {
+        return history.sell_prices.average(commodity, window);
+    }
+    double AverageHistoricalMidPrice(const std::string& commodity, int window) {
+        return (AverageHistoricalBuyPrice(commodity, window) + AverageHistoricalSellPrice(commodity, window))/2;
     }
     double AverageHistoricalTrades(const std::string& commodity, int window) {
         return history.trades.average(commodity, window);
@@ -262,7 +268,8 @@ private:
         int num_trades_this_tick = 0;
         double money_traded_this_tick = 0;
         double units_traded_this_tick = 0;
-        double avg_price_this_tick = 0;
+        double avg_buy_price_this_tick = 0;
+        double avg_sell_price_this_tick = 0;
         double supply = 0;
         double demand = 0;
 
@@ -332,8 +339,8 @@ private:
                 ask_result.UpdateWithTrade(quantity_traded, seller_price);
 
                 // update per-tick metrics
-                double clearing_price = (seller_price + buyer_price) / 2;
-                avg_price_this_tick = (avg_price_this_tick*units_traded_this_tick + clearing_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
+                avg_buy_price_this_tick = (avg_buy_price_this_tick*units_traded_this_tick + buyer_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
+                avg_sell_price_this_tick = (avg_sell_price_this_tick*units_traded_this_tick + seller_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
 
                 units_traded_this_tick += quantity_traded;
                 money_traded_this_tick += quantity_traded*buyer_price;
@@ -375,10 +382,12 @@ private:
         history.trades.add(commodity, num_trades_this_tick);
 
         if (units_traded_this_tick > 0) {
-            history.prices.add(commodity, avg_price_this_tick);
+            history.buy_prices.add(commodity, avg_buy_price_this_tick);
+            history.sell_prices.add(commodity, avg_sell_price_this_tick);
         } else {
             // Set to same as last-tick's average if no trades occurred
-            history.prices.add(commodity, history.prices.average(commodity, 1));
+            history.buy_prices.add(commodity, history.buy_prices.average(commodity, 1));
+            history.sell_prices.add(commodity, history.sell_prices.average(commodity, 1));
         }
     }
 

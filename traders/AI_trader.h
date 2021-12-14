@@ -321,7 +321,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     }
 }
 BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation) {
-    double bid_price = (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
+    double bid_price = (auction_house.lock()->AverageHistoricalBuyPrice(commodity, external_lookback));
     //scale between price based on need
     double max_price = money;
     double min_price = MIN_PRICE;
