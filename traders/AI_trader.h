@@ -31,7 +31,7 @@ class Role {
 private:
     // rng_gen
     std::mersenne_twister_engine<uint_fast32_t, 32, 624, 397, 31, 0x9908b0dfUL, 11, 0xffffffffUL, 7, 0x9d2c5680UL, 15, 0xefc60000UL, 18, 1812433253UL> rng_gen = std::mt19937(std::random_device()());
-
+    double track_costs = 0;
 public:
     bool Random(double chance);
     virtual void TickRole(AITrader & trader) = 0;
@@ -65,8 +65,6 @@ public:
     double money_last_round = 0;
     double profit = 0;
 
-    double track_costs;
-
     ConsoleLogger logger;
 
 public:
@@ -84,9 +82,6 @@ public:
             _observedTradingRange[item.name] = {base_price, base_price*3};
             _inventory.SetCost(item.name, base_price);
         }
-
-
-        track_costs = 0;
     }
 
 
@@ -428,9 +423,9 @@ void Role::Produce(AITrader& trader, const std::string& commodity, int amount, d
     if (Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
 
-        if (trader.track_costs < 1) trader.track_costs = 1;
-        trader.TryAddCommodity(commodity, amount, trader.track_costs /  amount, false);
-        trader.track_costs = 0;
+        if (track_costs < 1) track_costs = 1;
+        trader.TryAddCommodity(commodity, amount, track_costs /  amount, false);
+        track_costs = 0;
     }
 }
 void Role::Consume(AITrader& trader, const std::string& commodity, int amount, double chance) {
@@ -438,13 +433,13 @@ void Role::Consume(AITrader& trader, const std::string& commodity, int amount, d
         trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount));
         trader.TryTakeCommodity(commodity, amount, 0, false);
         if (amount > 0) {
-            trader.track_costs += amount*trader.QueryCost(commodity);
+            track_costs += amount*trader.QueryCost(commodity);
         }
     }
 }
 void Role::LoseMoney(AITrader& trader, double amount) {
     trader.ForceTakeMoney(amount);
-    trader.track_costs += amount;
+    track_costs += amount;
 }
 
 class EmptyRole : public Role {
