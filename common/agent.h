@@ -38,10 +38,6 @@ public:
     virtual bool HasMoney(double quantity) {return false;};
     virtual bool HasCommodity(const std::string& commodity, int quantity) {return false;};
 
-    virtual int GetIdeal(const std::string& name) { return 0; };
-    virtual int Query(const std::string& name) { return 0; }
-    virtual double QueryCost(const std::string& name) { return 0;}
-    virtual double GetEmptySpace() { return 0; }
 private:
     friend AuctionHouse;
     virtual double TryTakeMoney(double quantity, bool atomic) {};

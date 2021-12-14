@@ -109,10 +109,9 @@ public:
     int TryTakeCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
     int TryAddCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
 
-    int GetIdeal(const std::string& name) override;
-    int Query(const std::string& name) override;
-    double QueryCost(const std::string& name) override;
-    double GetEmptySpace() override;
+    int GetIdeal(const std::string& name);
+    int Query(const std::string& name);
+    double QueryCost(const std::string& name);
 
     // Trading functions
     void UpdatePriceModelFromBid(BidResult& result);
@@ -271,7 +270,6 @@ int AITrader::GetIdeal(const std::string& name) {
 }
 int AITrader::Query(const std::string& name) { return _inventory.Query(name); }
 double AITrader::QueryCost(const std::string& name) { return _inventory.QueryCost(name); }
-double AITrader::GetEmptySpace() { return _inventory.GetEmptySpace(); }
 
 // Trading functions
 void AITrader::UpdatePriceModelFromBid(BidResult& result) {
