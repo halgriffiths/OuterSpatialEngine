@@ -420,7 +420,7 @@ bool Role::Random(double chance) {
     return (rng_gen() < chance*rng_gen.max());
 }
 void Role::Produce(AITrader& trader, const std::string& commodity, int amount, double chance) {
-    if (Random(chance)) {
+    if (amount > 0 && Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
 
         if (track_costs < 1) track_costs = 1;
@@ -431,9 +431,9 @@ void Role::Produce(AITrader& trader, const std::string& commodity, int amount, d
 void Role::Consume(AITrader& trader, const std::string& commodity, int amount, double chance) {
     if (Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount));
-        trader.TryTakeCommodity(commodity, amount, 0, false);
-        if (amount > 0) {
-            track_costs += amount*trader.QueryCost(commodity);
+        int actual_quantity = trader.TryTakeCommodity(commodity, amount, 0, false);
+        if (actual_quantity > 0) {
+            track_costs += actual_quantity*trader.QueryCost(commodity);
         }
     }
 }
