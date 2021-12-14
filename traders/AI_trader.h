@@ -13,6 +13,8 @@
 #include "../auction/auction_house.h"
 #include "../metrics/metrics.h"
 
+class AITrader;
+
 namespace {
     double PositionInRange(double value, double min, double max) {
         value -= min;
