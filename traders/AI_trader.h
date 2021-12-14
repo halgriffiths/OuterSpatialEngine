@@ -325,11 +325,7 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     //scale between price based on need
     double max_price = money;
     double min_price = MIN_PRICE;
-    if (desperation > 0) {
-        bid_price = bid_price + (max_price - bid_price)*desperation;
-    } else {
-        bid_price = bid_price + (bid_price - min_price)*desperation;
-    }
+    bid_price = bid_price * (1+desperation);
     bid_price = std::min(std::max(min_price, bid_price), max_price);
 
     int ideal = DetermineBuyQuantity(commodity);
