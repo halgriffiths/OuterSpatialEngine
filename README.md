@@ -16,4 +16,9 @@ The original repo was based on a paper which had some serious issues, many of wh
 3. `cmake --configure .`
 4. `cmake --build /path/to/directory/bazaarBot2 --target all`
 
-This gives you 2 executables, `RunTests` and `driver`. The former runs tests (:o) and the latter makes a test run and (in future) should output some graphs/visualisations
+This gives you 2 executables, `RunTests` and `driver`. The former runs tests (:o) and the latter makes a test run and outputs some graphs/visualisations
+
+~~~bash
+$ ./driver   # Popout Qt plot
+$ ./driver && ./color_test.sh plot.gnu   # ASCII plot in terminal
+~~~
