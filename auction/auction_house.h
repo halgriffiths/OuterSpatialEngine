@@ -16,7 +16,7 @@
 #include "../traders/inventory.h"
 #include "../common/commodity.h"
 
-#include "../metrics/metrics.h"
+#include "../metrics/logger.h"
 
 class AuctionHouse : public Agent {
 public:

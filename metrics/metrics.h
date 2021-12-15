@@ -1,86 +1,152 @@
-#include <utility>
-
 //
-// Created by henry on 06/12/2021.
+// Created by henry on 15/12/2021.
 //
 
 #ifndef CPPBAZAARBOT_METRICS_H
 #define CPPBAZAARBOT_METRICS_H
-namespace Log{
-    enum LogLevel {
-        ERROR,
-        WARN,
-        INFO, //Received messages (but not sent message) are reported
-        DEBUG //Everything is logged
-    };
-}
 
-namespace {
-    const char* LogLevelToCString(Log::LogLevel level) {
-        const char* level_name;
-        if (level == Log::ERROR) {
-            level_name = "ERROR";
-        } else if (level == Log::WARN) {
-            level_name = "WARN";
-        } else if (level == Log::INFO) {
-            level_name = "INFO";
-        } else if (level == Log::DEBUG) {
-            level_name = "DEBUG";
-        } else {
-            level_name = "UNKNOWN";
-        }
-        return level_name;
-    }
-}
-// Base class makes no logs
-class Logger {
+#include "../traders/AI_trader.h"
+
+class GlobalMetrics {
 public:
-    std::string name;
+    std::vector<std::string> tracked_goods;
+    std::vector<std::string> tracked_roles;
 
-    Logger(std::string owner_name = "none",Log::LogLevel verbosity = Log::ERROR)
-    : name(std::move(owner_name))
-    , verbosity(verbosity) {};
-    virtual void LogInternal(std::string raw_message) {return;};
-    virtual void LogSent(int to,Log::LogLevel level, std::string message) {return;};
-    virtual void LogReceived(int from,Log::LogLevel level, std::string message) {return;};
-    virtual void Log(Log::LogLevel level, std::string message) {return;};
-    Log::LogLevel verbosity;
-};
+private:
+    int curr_tick = 0;
+    int SAMPLE_ID = 0;
+    int SAMPLE_ID2 = 1;
+    std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> avg_trades_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> avg_asks_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> avg_bids_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> num_alive_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> sample1_metrics;
+    std::map<std::string, std::vector<std::pair<double, double>>> sample2_metrics;
 
-class ConsoleLogger : public Logger {
 public:
-    ConsoleLogger(std::string owner_name,Log::LogLevel verbosity)
-        : Logger(std::move(owner_name), verbosity) {};
+    GlobalMetrics(std::vector<std::string> tracked_goods, std::vector<std::string> tracked_roles)
+            : tracked_goods(tracked_goods)
+            , tracked_roles(tracked_roles) {
+        sample1_metrics["money"] = {};
+        sample2_metrics["money"] = {};
+        for (auto& good : tracked_goods) {
+            net_supply_metrics[good] = {};
+            avg_price_metrics[good] = {};
+            avg_trades_metrics[good] = {};
+            avg_asks_metrics[good] = {};
+            avg_bids_metrics[good] = {};
 
-    void LogInternal(std::string raw_message) override {
-        std::cout << raw_message << std::endl;
+            sample1_metrics[good] = {};
+            sample2_metrics[good] = {};
+        }
+        for (auto& role : tracked_roles) {
+            num_alive_metrics[role] = {};
+        }
     }
 
-    void LogSent(int to, Log::LogLevel level, std::string message) override {
-        if (level > verbosity) {
-            return;
+    void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
+        for (auto& good : tracked_goods) {
+            double asks = auction_house->AverageHistoricalAsks(good, 1);
+            double bids = auction_house->AverageHistoricalBids(good, 1);
+
+            avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalMidPrice(good, 5));
+            avg_trades_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalTrades(good, 1));
+            avg_asks_metrics[good].emplace_back(curr_tick, asks);
+            avg_bids_metrics[good].emplace_back(curr_tick, bids);
+
+            net_supply_metrics[good].emplace_back(curr_tick, asks-bids);
+
+            sample1_metrics[good].emplace_back(curr_tick, all_traders[SAMPLE_ID]->Query(good));
+            sample2_metrics[good].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->Query(good));
         }
-        char header_string[100]; //yolo lmao
-        snprintf(header_string, 100, "[%s][Sent    ] %s >>> %d - ",LogLevelToCString(level), name.c_str(), to);
-        LogInternal(std::string(header_string) + message);
+        for (auto& role : tracked_roles) {
+            num_alive_metrics[role].emplace_back(curr_tick, num_alive[role]);
+        }
+
+        sample1_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID]->money);
+        sample2_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->money);
+
+        curr_tick++;
+    }
+    void plot_verbose() {
+        // Plot results
+        Gnuplot gp;
+        gp << "set multiplot layout 2,2\n";
+        gp << "set offsets 0, 0, 1, 0\n";
+        gp << "set title 'Prices'\n";
+        auto plots = gp.plotGroup();
+        for (auto& good : tracked_goods) {
+            plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
+        }
+        gp << plots;
+
+        gp << "set title 'Num successful trades'\n";
+        plots = gp.plotGroup();
+        for (auto& good : tracked_goods) {
+            plots.add_plot1d(avg_trades_metrics[good], "with lines title '"+good+std::string("'"));
+        }
+        gp << plots;
+
+        gp << "set title 'Demographics'\n";
+        plots = gp.plotGroup();
+        for (auto& role : tracked_roles) {
+            plots.add_plot1d(num_alive_metrics[role], "with lines title '"+role+std::string("'"));
+        }
+        gp << plots;
+
+        gp << "set title 'Net supply'\n";
+        plots = gp.plotGroup();
+        for (auto& good : tracked_goods) {
+            plots.add_plot1d(net_supply_metrics[good], "with lines title '"+good+std::string("'"));
+        }
+        gp << plots;
+
+//    gp << "set title 'Sample Trader Detail - 1'\n";
+//    plots = gp.plotGroup();
+//    for (auto& good : tracked_goods) {
+//        plots.add_plot1d(sample1_metrics[good], "with lines title '"+good+std::string("'"));
+//    }
+//    plots.add_plot1d(sample1_metrics["money"], "with lines title 'money'");
+//    gp << plots;
+//
+//    gp << "set title 'Sample Trader Detail - 2'\n";
+//    plots = gp.plotGroup();
+//    for (auto& good : tracked_goods) {
+//        plots.add_plot1d(sample2_metrics[good], "with lines title '"+good+std::string("'"));
+//    }
+//    plots.add_plot1d(sample2_metrics["money"], "with lines title 'money'");
+//    gp << plots;
     }
 
-    void LogReceived(int from,Log::LogLevel level, std::string message) override {
-        if (level > verbosity) {
-            return;
+    void plot_terse(int window = 0) {
+        // Plot results
+        Gnuplot gp;
+        gp << "set term dumb 180 65\n";
+        if (window > 0 && window < curr_tick) {
+            gp << "set xrange [" + std::to_string(curr_tick - window) + ":"+ std::to_string(curr_tick) +"]\n";
         }
-        char header_string[100]; //yolo lmao
-        snprintf(header_string, 100, "[%s][Received] %s <<< %d - ",LogLevelToCString(level), name.c_str(), from);
-        LogInternal(std::string(header_string) + message);
+        gp << "set offsets 0, 0, 1, 0\n";
+        gp << "set title 'Prices'\n";
+        auto plots = gp.plotGroup();
+        for (auto& good : tracked_goods) {
+            plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
+        }
+        gp << plots;
     }
 
-    void Log(Log::LogLevel level, std::string message) override {
-        if (level > verbosity) {
-            return;
+    void plot_terse_tofile() {
+        Gnuplot gp(std::fopen("plot.gnu", "w"));
+        gp << "set term dumb 180 65\n";
+        gp << "set offsets 0, 0, 1, 0\n";
+        gp << "set title 'Prices'\n";
+        auto plots = gp.plotGroup();
+        gp << "plot";
+        for (auto& good : tracked_goods) {
+            gp << gp.file1d(avg_price_metrics[good], good+".dat") << "with lines title '"+good+std::string("',");
         }
-        char header_string[30]; //yolo lmao
-        snprintf(header_string, 30, "[%s] %s: ",LogLevelToCString(level), name.c_str());
-        LogInternal(std::string(header_string) + message);
+        gp << std::endl; //flush result
     }
 };
 #endif//CPPBAZAARBOT_METRICS_H

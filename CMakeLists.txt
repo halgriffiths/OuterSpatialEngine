@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 ############# LIBRARY ############
 project(CppBazaarBot)
-add_library(bazaarbot BazaarBot.h traders/AI_trader.h common/agent.h common/messages.h auction/auction_house.h metrics/metrics.h traders/inventory.h common/commodity.h common/history.h traders/roles.h traders/fake_trader.h)
+add_library(bazaarbot BazaarBot.h traders/AI_trader.h common/agent.h common/messages.h auction/auction_house.h metrics/logger.h traders/inventory.h common/commodity.h common/history.h traders/roles.h traders/fake_trader.h)
 set_target_properties(bazaarbot PROPERTIES LINKER_LANGUAGE CXX)
 
 ############# DRIVER ############
@@ -26,7 +26,7 @@ target_link_libraries(gnuplot_iostream INTERFACE
         )
 
 # Add main.cpp file of project root directory as source file
-set(SOURCE_FILES main.cc)
+set(SOURCE_FILES main.cc metrics/metrics.h)
 add_executable(driver ${SOURCE_FILES})
 target_compile_features(driver PRIVATE cxx_std_17)
 target_link_libraries(driver PRIVATE

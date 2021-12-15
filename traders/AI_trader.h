@@ -11,7 +11,7 @@
 #include "../common/messages.h"
 
 #include "../auction/auction_house.h"
-#include "../metrics/metrics.h"
+#include "../metrics/logger.h"
 
 class AITrader;
 

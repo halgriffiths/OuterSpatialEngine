@@ -10,7 +10,7 @@
 
 #include "auction/auction_house.h"
 #include "common/messages.h"
-#include "metrics/metrics.h"
+#include "metrics/logger.h"
 #include "traders/AI_trader.h"
 #include "traders/fake_trader.h"
 #include "traders/roles.h"
