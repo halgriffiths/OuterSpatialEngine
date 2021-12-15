@@ -288,6 +288,7 @@ void AITrader::UpdatePriceModelFromBid(BidResult& result) {
     }
 }
 void AITrader::UpdatePriceModelFromAsk(const AskResult& result) {
+
     for (int i = 0; i < result.quantity_traded; i++) {
         _observedTradingRange[result.commodity].push_back(result.avg_price);
     }
@@ -328,8 +329,9 @@ void AITrader::GenerateOffers(const std::string& commodity) {
             logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
 
             //double desperation = 2 - std::pow((0.2 * money / IDLE_TAX), 0.2*shortage);
+            double desperation = 1;
             double days_savings = money / IDLE_TAX;
-            double desperation = ( 1 /(days_savings*days_savings)) + 1;
+            desperation *= ( 5 /(days_savings*days_savings)) + 1;
             desperation *= 1 - (0.4*(fulfillment - 0.5))/(1 + 0.4*std::abs(fulfillment-0.5));
             auto offer = CreateBid(commodity, min_limit, max_limit, desperation);
             if (offer.quantity > 0) {
@@ -474,7 +476,7 @@ void Role::Consume(AITrader& trader, const std::string& commodity, int amount, d
 }
 void Role::LoseMoney(AITrader& trader, double amount) {
     trader.ForceTakeMoney(amount);
-    track_costs += amount;
+    //track_costs += amount;
 }
 
 #endif//CPPBAZAARBOT_AI_TRADER_H
