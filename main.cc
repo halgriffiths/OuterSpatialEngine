@@ -13,7 +13,7 @@ std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::map<std::string, std::vector<InventoryItem>>& inv,
                                     std::mt19937& gen) {
     double STARTING_MONEY = 20.0;
-    std::uniform_real_distribution<> random_money(0.9*STARTING_MONEY, 1.1*STARTING_MONEY); // define the range
+    std::uniform_real_distribution<> random_money(0.5*STARTING_MONEY, 1.5*STARTING_MONEY); // define the range
     if (class_name == "farmer") {
         return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleFarmer>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
     } else if (class_name == "woodcutter") {
@@ -30,7 +30,13 @@ std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
         std::cout << "Error: Invalid class type passed to make_agent lambda" << std::endl;
     }
     return std::shared_ptr<AITrader>();
-};
+}
+
+std::string ChooseNewClassRandom(std::vector<std::string>& tracked_roles, std::mt19937& gen) {
+    std::uniform_int_distribution<> random_job(0, (int) tracked_roles.size() - 1); // define the range
+    int new_job = random_job(gen);
+    return tracked_roles[new_job];
+}
 
 void AdvanceTicks(int start_tick, int steps, int& max_id,
                   std::vector<std::string>& tracked_goods,
@@ -41,7 +47,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
                 GlobalMetrics& global_metrics,
                 std::mt19937& gen,
                   std::map<std::string, std::vector<InventoryItem>>& inv) {
-    std::uniform_int_distribution<> random_job(0, (int) tracked_roles.size() - 1); // define the range
+
     std::map<std::string, int> num_alive;
     for (int curr_tick = start_tick; curr_tick < start_tick+steps; curr_tick++) {
         for (auto& role : tracked_roles) {
@@ -55,8 +61,8 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
                 num_alive[all_traders[i]->class_name] += 1;
             } else {
                 //trader died, add new trader?
-                int new_job = random_job(gen);
-                all_traders[i] = MakeAgent(tracked_roles[new_job], max_id, auction_house, inv, gen);
+                auto new_job = ChooseNewClassRandom(tracked_roles, gen);
+                all_traders[i] = MakeAgent(new_job, max_id, auction_house, inv, gen);
                 max_id++;
             }
         }
@@ -73,7 +79,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
 
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = 2000;
+    int NUM_TICKS = (animation) ? 2000 : 1000;
     int WINDOW_SIZE = 100;
     int STEP_SIZE = 5;
     int STEP_PAUSE_MS = 1000;
