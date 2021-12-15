@@ -24,7 +24,7 @@ public:
 
 private:
     int ticks = 0;
-    std::mersenne_twister_engine<uint_fast32_t, 32, 624, 397, 31, 0x9908b0dfUL, 11, 0xffffffffUL, 7, 0x9d2c5680UL, 15, 0xefc60000UL, 18, 1812433253UL> rng_gen = std::mt19937(std::random_device()());
+    std::mt19937 rng_gen = std::mt19937(std::random_device()());
     std::map<std::string, Commodity> known_commodities;
     std::map<int, std::shared_ptr<Trader>> known_traders;  //key = trader-id
 
