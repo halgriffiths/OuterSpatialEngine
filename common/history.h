@@ -60,16 +60,31 @@ public:
         return total/range;
     }
 
-    double variance(const std::string& name) {
-        double sum = std::accumulate(std::begin(log[name]), std::end(log[name]), 0.0);
+    double variance(const std::string& name, int window) {
+        double sum = 0;
+        for (int i = log[name].size() - window; i < log[name].size(); i++) {
+            sum += log[name][i];
+        }
         double m =  sum / log[name].size();
 
         double accum = 0.0;
-        std::for_each (std::begin(log[name]), std::end(log[name]), [&](const double d) {
-          accum += (d - m) * (d - m);
-        });
+        for (int i = log[name].size() - window; i < log[name].size(); i++) {
+            accum += (log[name][i] - m) * (log[name][i] - m);
+        }
 
         return sqrt(accum / (log[name].size()-1));
+    }
+
+    double percentage_change(const std::string& name, int window) {
+        double prev_value;
+        if (window <= log[name].size()) {
+            prev_value = log[name][log[name].size() - window];
+        } else {
+            prev_value = log[name][0];
+        }
+
+        double curr_value = log[name].back();
+        return 100*(curr_value- prev_value)/prev_value;
     }
 
 };

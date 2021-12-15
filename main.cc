@@ -163,6 +163,26 @@ int main() {
                  inv);
         if (curr_tick >= WINDOW_SIZE) {
             global_metrics.plot_terse(WINDOW_SIZE);
+            for (auto& good : tracked_goods) {
+                std::cout << "\t\t\t" << good;
+            }
+            std::cout << std::endl;
+            for (auto& good : tracked_goods) {
+                double price = auction_house->AverageHistoricalBuyPrice(good, WINDOW_SIZE);
+
+                std::cout << "\t\t$" << price;
+                double pc_change = auction_house->history.buy_prices.percentage_change(good, WINDOW_SIZE);
+                if (pc_change < 0) {
+                    //▼
+                    std::cout << "\033[1;31m(▼" << pc_change << "%)\033[0m";
+                } else if (pc_change > 0) {
+                    //▲
+                    std::cout << "\033[1;32m(▲" << pc_change << "%)\033[0m";
+                } else {
+                    std::cout << "(" << pc_change << "%)";
+                }
+            }
+            std::cout << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(STEP_PAUSE_MS));
         }
     }
