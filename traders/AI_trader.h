@@ -338,15 +338,21 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     bid_price = std::min(std::max(min_price, bid_price), max_price);
 
     int ideal = DetermineBuyQuantity(commodity, bid_price);
-
-    //can't buy more than limit
     int quantity = std::max(std::min(ideal, max_limit), min_limit);
     return BidOffer(id, commodity, quantity, bid_price);
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 2% profit
-    double ask_price = std::max(MIN_PRICE, QueryCost(commodity) * 1.02);
-
+    double fair_price = QueryCost(commodity) * 1.02;
+    double market_price = auction_house.lock()->AverageHistoricalMidPrice(commodity, external_lookback);
+    double ask_price;
+    if (fair_price > market_price) {
+        ask_price = fair_price;
+    } else {
+        std::uniform_real_distribution<> random_price(fair_price, market_price);
+        ask_price = random_price(rng_gen);
+    }
+    ask_price = std::max(MIN_PRICE, ask_price);
     int quantity = DetermineSaleQuantity(commodity);
     //can't sell less than limit
     quantity = quantity < min_limit ? min_limit : quantity;
