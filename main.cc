@@ -12,7 +12,7 @@ std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::shared_ptr<AuctionHouse>& auction_house,
                                     std::map<std::string, std::vector<InventoryItem>>& inv,
                                     std::mt19937& gen) {
-    double STARTING_MONEY = 20.0;
+    double STARTING_MONEY = 50.0;
     std::uniform_real_distribution<> random_money(0.5*STARTING_MONEY, 1.5*STARTING_MONEY); // define the range
     if (class_name == "farmer") {
         return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleFarmer>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
@@ -126,7 +126,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
 
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = (animation) ? 2000 : 1000;
+    int NUM_TICKS = (animation) ? 2000 : 2000;
     int WINDOW_SIZE = 100;
     int STEP_SIZE = 5;
     int STEP_PAUSE_MS = 1000;
@@ -152,29 +152,29 @@ void Run(bool animation) {
     // --- SET UP DEFAULT INVENTORIES ---
     std::map<std::string, std::vector<InventoryItem>> inv;
     {
-        inv.emplace("farmer", std::vector<InventoryItem>{{comm["food"], 1, 0},
-                                                         {comm["tools"], 1, 1},
-                                                         {comm["wood"], 0, 3},
-                                                         {comm["fertilizer"], 0, 3}});
+        inv.emplace("farmer", std::vector<InventoryItem>{{comm["food"], 0, 0},
+                                                         {comm["tools"], 1, 2},
+                                                         {comm["wood"], 1, 6},
+                                                         {comm["fertilizer"], 1, 6}});
 
-        inv.emplace("miner", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                        {comm["tools"], 1, 1},
+        inv.emplace("miner", std::vector<InventoryItem>{{comm["food"], 1, 6},
+                                                        {comm["tools"], 1, 2},
                                                         {comm["ore"], 0, 0}});
 
-        inv.emplace("refiner", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                          {comm["tools"], 1, 1},
-                                                          {comm["ore"], 0, 5},
+        inv.emplace("refiner", std::vector<InventoryItem>{{comm["food"], 1, 6},
+                                                          {comm["tools"], 1, 2},
+                                                          {comm["ore"], 1, 10},
                                                           {comm["metal"], 0, 0}});
 
-        inv.emplace("woodcutter", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                             {comm["tools"], 1, 1},
+        inv.emplace("woodcutter", std::vector<InventoryItem>{{comm["food"], 1, 6},
+                                                             {comm["tools"], 1, 2},
                                                              {comm["wood"], 0, 0}});
 
-        inv.emplace("blacksmith", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                             {comm["tools"], 0, 1},
-                                                             {comm["metal"], 0, 5}});
+        inv.emplace("blacksmith", std::vector<InventoryItem>{{comm["food"], 1, 6},
+                                                             {comm["tools"], 0, 0},
+                                                             {comm["metal"], 0, 10}});
 
-        inv.emplace("composter", std::vector<InventoryItem>{{comm["food"], 1, 3},
+        inv.emplace("composter", std::vector<InventoryItem>{{comm["food"], 1, 6},
                                                             {comm["fertilizer"], 0, 0}});
     }
 
@@ -200,8 +200,8 @@ void Run(bool animation) {
     {
         fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
         fake_trader->Tick();
-        fake_trader->RegisterShortage("ore", 3, 120, 20);
-        fake_trader->RegisterSurplus("wood", -0.9, 320, 20);
+//        fake_trader->RegisterShortage("ore", 3, 120, 40);
+//        fake_trader->RegisterSurplus("fertilizer", -0.9, 320, 20);
         max_id++;
     }
 

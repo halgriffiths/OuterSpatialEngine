@@ -312,10 +312,14 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     double unit_size = _inventory.GetSize(commodity);
 
 
-    double fulfillment = _inventory.Query(commodity) / (0.001 + 2*_inventory.GetItem(commodity)->ideal_quantity);
+    double fulfillment;
     if (class_name == "refiner" || class_name == "blacksmith") {
+        fulfillment = _inventory.Query(commodity) / (0.001 + _inventory.GetItem(commodity)->ideal_quantity);
         fulfillment = std::max(0.5, fulfillment);
+    } else {
+        fulfillment = _inventory.Query(commodity) / (0.001 + _inventory.GetItem(commodity)->ideal_quantity);
     }
+
     if (fulfillment < 1 && space >= unit_size) {
         int max_limit = (shortage*unit_size <= space) ? shortage : (int) space/shortage;
         if (max_limit > 0)
