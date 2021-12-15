@@ -45,6 +45,7 @@ public:
 
 class AITrader : public Trader {
 private:
+    std::mt19937 rng_gen = std::mt19937(std::random_device()());
     double MIN_PRICE = 0.01;
     bool initialised = false;
 
@@ -305,14 +306,22 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     double space = _inventory.GetEmptySpace();
     double unit_size = _inventory.GetSize(commodity);
 
-    if (shortage > 0 && space >= unit_size) {
+
+    double fulfillment = _inventory.Query(commodity) / (0.001 + 2*_inventory.GetItem(commodity)->ideal_quantity);
+    if (class_name == "refiner" || class_name == "blacksmith") {
+        fulfillment = std::max(0.5, fulfillment);
+    }
+    if (fulfillment < 1 && space >= unit_size) {
         int max_limit = (shortage*unit_size <= space) ? shortage : (int) space/shortage;
         if (max_limit > 0)
         {
             int min_limit = (_inventory.Query(commodity) == 0) ? 1 : 0;
             logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
 
-            double desperation = 1 - std::pow((0.2 * money / IDLE_TAX), 0.2*shortage);
+            //double desperation = 2 - std::pow((0.2 * money / IDLE_TAX), 0.2*shortage);
+            double days_savings = money / IDLE_TAX;
+            double desperation = ( 1 /(days_savings*days_savings)) + 1;
+            desperation *= 1 - (0.4*(fulfillment - 0.5))/(1 + 0.4*std::abs(fulfillment-0.5));
             auto offer = CreateBid(commodity, min_limit, max_limit, desperation);
             if (offer.quantity > 0) {
                 SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
@@ -321,11 +330,11 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     }
 }
 BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation) {
-    double bid_price = (auction_house.lock()->AverageHistoricalBuyPrice(commodity, external_lookback));
+    double fair_bid_price = (auction_house.lock()->AverageHistoricalMidPrice(commodity, external_lookback));
     //scale between price based on need
     double max_price = money;
     double min_price = MIN_PRICE;
-    bid_price = bid_price * (1+desperation);
+    double bid_price = fair_bid_price *desperation;
     bid_price = std::min(std::max(min_price, bid_price), max_price);
 
     int ideal = DetermineBuyQuantity(commodity, bid_price);
