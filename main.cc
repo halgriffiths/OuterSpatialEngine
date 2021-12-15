@@ -69,72 +69,72 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
     }
 
 }
-// ---------------- MAIN ----------
-int main() {
 
+
+void Run() {
     int NUM_TRADERS_EACH_TYPE = 10;
     int NUM_TICKS = 2000;
     int WINDOW_SIZE = 100;
     int STEP_SIZE = 5;
     int STEP_PAUSE_MS = 1000;
 
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 gen(rd()); // seed the generator
+
     std::vector<std::string> tracked_goods = {"food", "wood", "fertilizer", "ore", "metal", "tools"};
     std::vector<std::string> tracked_roles = {"farmer", "woodcutter", "composter", "miner", "refiner", "blacksmith"};
 
     auto global_metrics = GlobalMetrics(tracked_goods, tracked_roles);
 
+    // --- SET UP DEFAULT COMMODITIES ---
     std::map<std::string, Commodity> comm;
-    comm.emplace("food", Commodity("food", 0.5));
-    comm.emplace("wood", Commodity("wood", 1));
-    comm.emplace("ore", Commodity("ore", 1));
-    comm.emplace("metal", Commodity("metal", 1));
-    comm.emplace("tools", Commodity("tools", 1));
-    comm.emplace("fertilizer", Commodity("fertilizer", 0.1));
-
+    {
+        comm.emplace("food", Commodity("food", 0.5));
+        comm.emplace("wood", Commodity("wood", 1));
+        comm.emplace("ore", Commodity("ore", 1));
+        comm.emplace("metal", Commodity("metal", 1));
+        comm.emplace("tools", Commodity("tools", 1));
+        comm.emplace("fertilizer", Commodity("fertilizer", 0.1));
+    }
+    // --- SET UP DEFAULT INVENTORIES ---
     std::map<std::string, std::vector<InventoryItem>> inv;
-    inv.emplace("farmer", std::vector<InventoryItem>{{comm["food"], 1, 0},
+    {
+        inv.emplace("farmer", std::vector<InventoryItem>{{comm["food"], 1, 0},
                                                          {comm["tools"], 1, 1},
                                                          {comm["wood"], 0, 3},
                                                          {comm["fertilizer"], 0, 3}});
 
-    inv.emplace("miner", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                         {comm["tools"], 1, 1},
-                                                         {comm["ore"], 0, 0}});
-
-    inv.emplace("refiner", std::vector<InventoryItem>{{comm["food"], 1, 3},
+        inv.emplace("miner", std::vector<InventoryItem>{{comm["food"], 1, 3},
                                                         {comm["tools"], 1, 1},
-                                                        {comm["ore"], 0, 5},
-                                                      {comm["metal"], 0, 0}});
+                                                        {comm["ore"], 0, 0}});
 
-    inv.emplace("woodcutter", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                        {comm["tools"], 1, 1},
-                                                        {comm["wood"], 0, 0}});
+        inv.emplace("refiner", std::vector<InventoryItem>{{comm["food"], 1, 3},
+                                                          {comm["tools"], 1, 1},
+                                                          {comm["ore"], 0, 5},
+                                                          {comm["metal"], 0, 0}});
 
-    inv.emplace("blacksmith", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                    {comm["tools"], 0, 1},
-                                                    {comm["metal"], 0, 5}});
+        inv.emplace("woodcutter", std::vector<InventoryItem>{{comm["food"], 1, 3},
+                                                             {comm["tools"], 1, 1},
+                                                             {comm["wood"], 0, 0}});
 
-    inv.emplace("composter", std::vector<InventoryItem>{{comm["food"], 1, 3},
-                                                        {comm["fertilizer"], 0, 0}});
+        inv.emplace("blacksmith", std::vector<InventoryItem>{{comm["food"], 1, 3},
+                                                             {comm["tools"], 0, 1},
+                                                             {comm["metal"], 0, 5}});
 
+        inv.emplace("composter", std::vector<InventoryItem>{{comm["food"], 1, 3},
+                                                            {comm["fertilizer"], 0, 0}});
+    }
 
-
-    std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-
-
-
-    auto auction_house = std::make_shared<AuctionHouse>(0, Log::WARN);
+    // --- SET UP AUCTION HOUSE ---
+    int max_id = 0;
+    auto auction_house = std::make_shared<AuctionHouse>(max_id, Log::WARN);
+    max_id++;
     for (auto& item : comm) {
         auction_house->RegisterCommodity(item.second);
     }
 
-
-
+    // --- SET UP AI TRADERS ---
     std::vector<std::shared_ptr<AITrader>> all_traders;
-    int max_id = 1;
-
-    std::shared_ptr<AITrader> new_trader;
     for (int i = 0; i < NUM_TRADERS_EACH_TYPE; i++) {
         for (auto& role : tracked_roles) {
             all_traders.push_back(MakeAgent(role, max_id, auction_house, inv, gen));
@@ -142,14 +142,19 @@ int main() {
         }
     }
 
+    // --- SET UP FAKE TRADER ---
     auto fake_trader = std::make_shared<FakeTrader>(max_id, auction_house);
-    fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
-    fake_trader->Tick();
+    {
+        fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
+        fake_trader->Tick();
+        fake_trader->RegisterShortage("ore", 3, 120, 20);
+        fake_trader->RegisterSurplus("wood", -0.9, 320, 20);
+        max_id++;
+    }
 
-    fake_trader->RegisterShortage("ore", 3, 120, 20);
-    fake_trader->RegisterSurplus("wood", -0.9, 320, 20);
-    max_id++;
-
+    // --- MAIN LOOP ---
+    std::cout << std::fixed;
+    std::cout << std::setprecision(2);
 
     for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick += STEP_SIZE) {
         AdvanceTicks(curr_tick, STEP_SIZE, max_id,
@@ -186,26 +191,10 @@ int main() {
             std::this_thread::sleep_for(std::chrono::milliseconds(STEP_PAUSE_MS));
         }
     }
+}
 
-    std::cout << "Simulated " << NUM_TICKS << " with " << all_traders.size() << " agents." << std::endl;
-    std::cout << "Overall statistics" << std::endl;
-
-
-    std::cout << std::fixed;
-    std::cout << std::setprecision(2);
-    for (auto& good : tracked_goods) {
-        std::cout << "\t" << good << ": " << std::endl;
-        std::cout << "\t\tMean price: $" << auction_house->AverageHistoricalBuyPrice(good, NUM_TICKS) << std::endl;
-        std::cout << "\t\tVariance: $" << auction_house->StdDev(good) << std::endl;
-    }
-    int richest_index = 0;
-    int max_cash = 0;
-    for (int i = 0; i < all_traders.size(); i++) {
-        if (all_traders[i]->money > max_cash) {
-            max_cash = all_traders[i]->money;
-            richest_index = i;
-        }
-    }
-
-    global_metrics.plot_terse(50);
+// ---------------- MAIN ----------
+int main() {
+    Run();
+    return 0;
 }
