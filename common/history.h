@@ -29,11 +29,6 @@ public:
             return;// already registered
         }
         double starting_value = 1;
-        if (name == "metals") {
-            starting_value = 2;
-        } else if (name == "tools") {
-            starting_value = 3;
-        }
         log[name] = {starting_value};
     }
 
