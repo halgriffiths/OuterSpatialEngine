@@ -38,6 +38,51 @@ std::string ChooseNewClassRandom(std::vector<std::string>& tracked_roles, std::m
     return tracked_roles[new_job];
 }
 
+int RandomChoice(int num_weights, std::vector<double>& weights, std::mt19937& gen) {
+    double sum_of_weight = 0;
+    for(int i=0; i<num_weights; i++) {
+        sum_of_weight += weights[i];
+    }
+    std::uniform_real_distribution<> random(0, sum_of_weight);
+    double rnd = random(gen);
+    for(int i=0; i<num_weights; i++) {
+        if(rnd < weights[i])
+            return i;
+        rnd -= weights[i];
+    }
+    return -1;
+}
+
+std::string GetProducer(std::string& commodity) {
+    if (commodity == "food") {
+        return "farmer";
+    } else if (commodity == "fertilizer") {
+        return "composter";
+    } else if (commodity == "wood") {
+        return "woodcutter";
+    } else if (commodity == "ore") {
+        return "miner";
+    } else if (commodity == "metal") {
+        return "refiner";
+    } else if (commodity == "tools") {
+        return "blacksmith";
+    } else {
+        return "null";
+    }
+}
+std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std::shared_ptr<AuctionHouse>& auction_house, std::mt19937& gen) {
+    std::vector<double> weights;
+    double gamma = -0.02;
+    int lookback = 10;
+    for (auto& commodity : tracked_goods) {
+        double asks = auction_house->AverageHistoricalAsks(commodity, lookback);
+        double bids = auction_house->AverageHistoricalBids(commodity, lookback);
+        weights.push_back(std::exp(gamma*(asks-bids)));
+    }
+    int choice = RandomChoice((int) weights.size(),  weights, gen);
+    assert(choice != -1);
+    return GetProducer(tracked_goods[choice]);
+}
 void AdvanceTicks(int start_tick, int steps, int& max_id,
                   std::vector<std::string>& tracked_goods,
                   std::vector<std::string>& tracked_roles,
@@ -57,16 +102,17 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
         for (int i = 0; i < all_traders.size(); i++) {
             if (!all_traders[i]->destroyed) {
                 all_traders[i]->Tick();
-
                 num_alive[all_traders[i]->class_name] += 1;
             } else {
                 //trader died, add new trader?
-                auto new_job = ChooseNewClassRandom(tracked_roles, gen);
+                global_metrics.TrackDeath(all_traders[i]->class_name, all_traders[i]->ticks);
+                //auto new_job = ChooseNewClassRandom(tracked_roles, gen);
+                auto new_job = ChooseNewClassWeighted(tracked_goods,auction_house, gen);
                 all_traders[i] = MakeAgent(new_job, max_id, auction_house, inv, gen);
                 max_id++;
             }
         }
-
+        //all_traders[0]->PrintState();
         auction_house->Tick();
 
         // collect metrics
