@@ -11,8 +11,12 @@ class GlobalMetrics {
 public:
     std::vector<std::string> tracked_goods;
     std::vector<std::string> tracked_roles;
-
+    int total_deaths = 0;
+    double avg_overall_age = 0;
+    std::map<std::string, int> deaths_per_class;
+    std::map<std::string, double> age_per_class;
 private:
+
     int curr_tick = 0;
     int SAMPLE_ID = 0;
     int SAMPLE_ID2 = 1;
@@ -43,13 +47,15 @@ public:
         }
         for (auto& role : tracked_roles) {
             num_alive_metrics[role] = {};
+            age_per_class[role] = 0;
+            deaths_per_class[role] = 0;
         }
     }
 
     void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
         for (auto& good : tracked_goods) {
-            double asks = auction_house->AverageHistoricalAsks(good, 1);
-            double bids = auction_house->AverageHistoricalBids(good, 1);
+            double asks = auction_house->AverageHistoricalAsks(good, 10);
+            double bids = auction_house->AverageHistoricalBids(good, 10);
 
             avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalMidPrice(good, 5));
             avg_trades_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalTrades(good, 1));
@@ -147,6 +153,15 @@ public:
             gp << gp.file1d(avg_price_metrics[good], good+".dat") << "with lines title '"+good+std::string("',");
         }
         gp << std::endl; //flush result
+    }
+
+    void TrackDeath(std::string& class_name, int age) {
+        avg_overall_age = (avg_overall_age*total_deaths + age)/(total_deaths+1);
+        total_deaths++;
+
+        age_per_class[class_name] = (age_per_class[class_name]*deaths_per_class[class_name] + age)/(deaths_per_class[class_name]+1);
+        deaths_per_class[class_name]++;
+        std::map<std::string, double> age_per_class;
     }
 };
 #endif//CPPBAZAARBOT_METRICS_H

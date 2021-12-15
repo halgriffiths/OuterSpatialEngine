@@ -99,6 +99,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
             num_alive[role] = 0;
         }
         fake_trader->Tick();
+        //all_traders[0]->logger.verbosity = Log::INFO;
         for (int i = 0; i < all_traders.size(); i++) {
             if (!all_traders[i]->destroyed) {
                 all_traders[i]->Tick();
@@ -265,6 +266,16 @@ void Run(bool animation) {
             std::cout << "(" << pc_change << "%)";
         }
     }
+
+    std::cout << "\nAverage age on death: " << global_metrics.avg_overall_age << std::endl;
+    for (auto& role : tracked_roles) {
+        std::cout << role << ": " << global_metrics.age_per_class[role] << "(" <<global_metrics.deaths_per_class[role] <<" total)" << std::endl;
+    }
+    int survivor_age = 0;
+    for (auto& survivor : all_traders){
+        survivor_age += survivor->ticks;
+    }
+    std::cout << "Survivor avg age: " << survivor_age / all_traders.size() << std::endl;
 }
 
 // ---------------- MAIN ----------

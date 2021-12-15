@@ -33,13 +33,14 @@ class Role {
 private:
     // rng_gen
     std::mersenne_twister_engine<uint_fast32_t, 32, 624, 397, 31, 0x9908b0dfUL, 11, 0xffffffffUL, 7, 0x9d2c5680UL, 15, 0xefc60000UL, 18, 1812433253UL> rng_gen = std::mt19937(std::random_device()());
-    double track_costs = 0;
+
 public:
     bool Random(double chance);
     virtual void TickRole(AITrader & trader) = 0;
     void Produce(AITrader & trader, const std::string& commodity, int amount, double chance = 1);
     void Consume(AITrader & trader, const std::string& commodity, int amount, double chance = 1);
     void LoseMoney(AITrader & trader, double amount);
+    double track_costs = 0;
 };
 
 
@@ -55,11 +56,13 @@ private:
     std::weak_ptr<AuctionHouse> auction_house;
 
     std::map<std::string, std::vector<double>> _observedTradingRange;
-    double profit_last_round = 0;
+
     int  external_lookback = 5; //history range (num ticks)
     int internal_lookback = 10; //history range (num trades)
 
 public:
+    double curr_profit = 0;
+    double total_profit = 0;
     double IDLE_TAX = 2;
     std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
     double money;
@@ -92,7 +95,7 @@ public:
         }
     }
 
-
+    void PrintState();
     void FlushOutbox();
     void FlushInbox();
 
@@ -152,7 +155,7 @@ void AITrader::FlushInbox() {
     logger.Log(Log::DEBUG, "Flushing inbox");
     while (!inbox.empty()) {
         auto& incoming_message = inbox.back();
-        logger.LogReceived(incoming_message.sender_id, Log::DEBUG, incoming_message.ToString());
+        logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
         if (incoming_message.GetType() == Msg::EMPTY) {
             //no-op
         } else if (incoming_message.GetType() == Msg::BID_RESULT) {
@@ -407,6 +410,8 @@ void AITrader::Tick() {
     if (destroyed) {
         return;
     }
+    curr_profit = GetProfit();
+    total_profit += curr_profit;
     money_last_round = money;
     FlushInbox();
     if (initialised) {
@@ -428,6 +433,15 @@ void AITrader::Tick() {
     }
 }
 
+void AITrader::PrintState() {
+    std::cout <<"--------------------\nSTATUS: " << class_name << "-" << id << " age " << ticks << std::endl;
+    std::cout << "\tInventory:" << std::endl;
+    std::cout << "\t\tMoney: $" << money << std::endl;
+    for (auto& item : _inventory.inventory) {
+        std::cout << "\t\t" << item.first << ": " <<item.second.stored << "\t(ideal: " << item.second.ideal_quantity << ")" << std::endl;
+    }
+    std::cout << "Profit (total): " << curr_profit << " \t(" << total_profit << ")\n";
+}
 
 
 bool Role::Random(double chance) {
