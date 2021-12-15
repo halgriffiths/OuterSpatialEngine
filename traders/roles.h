@@ -13,6 +13,7 @@ class EmptyRole : public Role {
 
 class RoleFarmer : public Role {
 public:
+    RoleFarmer() : Role("fertilizer") {};
     void TickRole(AITrader& trader) override {
         bool has_wood = (0 < trader.Query("wood"));
         bool has_tools = (0 < trader.Query("tools"));
@@ -40,6 +41,7 @@ public:
 
 class RoleWoodcutter : public Role {
 public:
+    RoleWoodcutter() : Role("food") {};
     void TickRole(AITrader& trader) override {
         bool has_food = (0 < trader.Query("food"));
         bool has_tools = (0 < trader.Query("tools"));
@@ -64,6 +66,7 @@ public:
 
 class RoleComposter : public Role {
 public:
+    RoleComposter() : Role("food") {};
     void TickRole(AITrader& trader) override {
         bool has_food = (0 < trader.Query("food"));
         if (!has_food) {
@@ -76,6 +79,8 @@ public:
 };
 
 class RoleBlacksmith : public Role {
+public:
+    RoleBlacksmith() : Role("food") {};
     void TickRole(AITrader& trader) override {
         bool has_food = (0 < trader.Query("food"));
         int amount_metal = trader.Query("metal");
@@ -94,6 +99,8 @@ class RoleBlacksmith : public Role {
 };
 
 class RoleMiner : public Role {
+public:
+    RoleMiner() : Role("food") {};
     void TickRole(AITrader& trader) override {
         bool has_food = (0 < trader.Query("food"));
         bool has_tools = (0 < trader.Query("tools"));
@@ -112,6 +119,8 @@ class RoleMiner : public Role {
 };
 
 class RoleRefiner : public Role {
+public:
+    RoleRefiner() : Role("food") {};
     void TickRole(AITrader& trader) override {
         bool has_food = (0 < trader.Query("food"));
         bool has_tools = (0 < trader.Query("tools"));
