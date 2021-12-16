@@ -53,7 +53,7 @@ private:
     std::vector<OngoingSurplus> surpluses = {};
 public:
     FakeTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr)
-        : Trader(id)
+        : Trader(id, "fake")
         , auction_house(std::move(auction_house_ptr)) {
         auction_house_id = auction_house.lock()->id;
     }

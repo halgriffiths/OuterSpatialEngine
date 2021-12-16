@@ -30,8 +30,6 @@ private:
 
     std::map<std::string, std::vector<BidOffer>> bid_book = {};
     std::map<std::string, std::vector<AskOffer>> ask_book = {};
-
-
     ConsoleLogger logger;
     double spread_profit = 0;
 public:

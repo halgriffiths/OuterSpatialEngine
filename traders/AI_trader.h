@@ -64,24 +64,17 @@ private:
     int  external_lookback = 50; //history range (num ticks)
     int internal_lookback = 50; //history range (num trades)
 
-    double curr_profit = 0;
-    double total_profit = 0;
-
     bool destroyed = false;
-    double money_last_round = 0;
-    double profit = 0;
     double IDLE_TAX = 2;
     ConsoleLogger logger;
 
-    std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
     double money;
 
 public:
     AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
-    : Trader(id)
+    : Trader(id, class_name)
     , auction_house(std::move(auction_house_ptr))
     , logic(std::move(AI_logic))
-    , class_name(class_name)
     , money(starting_money)
     , logger(ConsoleLogger(class_name+std::to_string(id), log_level)) {
         //construct inv
@@ -116,7 +109,6 @@ private:
 
     std::pair<double, double> ObserveTradingRange(const std::string& commodity, int window);
 
-    // Misc
     void Destroy();
 public:
     void Tick();
@@ -128,7 +120,6 @@ public:
     int Query(const std::string& name);
     double QueryCost(const std::string& name);
 
-    std::string GetClassName() {return class_name;};
     double GetIdleTax() { return IDLE_TAX;};
     bool IsDestroyed() {return destroyed;};
     double QueryMoney() { return money;};
