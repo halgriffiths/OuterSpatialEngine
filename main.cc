@@ -73,7 +73,7 @@ std::string GetProducer(std::string& commodity) {
 std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std::shared_ptr<AuctionHouse>& auction_house, std::mt19937& gen) {
     std::vector<double> weights;
     double gamma = -0.02;
-    int lookback = 10;
+    int lookback = 30;
     for (auto& commodity : tracked_goods) {
         double asks = auction_house->AverageHistoricalAsks(commodity, lookback);
         double bids = auction_house->AverageHistoricalBids(commodity, lookback);
@@ -101,12 +101,12 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
         fake_trader->Tick();
         //all_traders[0]->logger.verbosity = Log::INFO;
         for (int i = 0; i < all_traders.size(); i++) {
-            if (!all_traders[i]->destroyed) {
+            if (!all_traders[i]->IsDestroyed()) {
                 all_traders[i]->Tick();
-                num_alive[all_traders[i]->class_name] += 1;
+                num_alive[all_traders[i]->GetClassName()] += 1;
             } else {
                 //trader died, add new trader?
-                global_metrics.TrackDeath(all_traders[i]->class_name, all_traders[i]->ticks);
+                global_metrics.TrackDeath(all_traders[i]->GetClassName(), all_traders[i]->ticks);
                 //auto new_job = ChooseNewClassRandom(tracked_roles, gen);
                 auto new_job = ChooseNewClassWeighted(tracked_goods,auction_house, gen);
                 all_traders[i] = MakeAgent(new_job, max_id, auction_house, inv, gen);
@@ -200,8 +200,8 @@ void Run(bool animation) {
     {
         fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
         fake_trader->Tick();
-//        fake_trader->RegisterShortage("ore", 3, 120, 40);
-//        fake_trader->RegisterSurplus("fertilizer", -0.9, 320, 20);
+        fake_trader->RegisterShortage("fertilizer", 3, 620, 40);
+        fake_trader->RegisterSurplus("fertilizer", -0.9, 220, 100);
         max_id++;
     }
 

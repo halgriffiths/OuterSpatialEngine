@@ -21,7 +21,7 @@ public:
         bool too_much_food = (3*trader.GetIdeal("food") < trader.Query("food"));
         // Stop producing if you have way too many goods (3x ideal)
         if (!has_fertilizer) {
-            LoseMoney(trader, trader.IDLE_TAX);
+            LoseMoney(trader, trader.GetIdleTax());
             return;
         }
         Consume(trader, "fertilizer", 1);
@@ -48,7 +48,7 @@ public:
         bool too_much_wood = (3*trader.GetIdeal("wood") < trader.Query("wood"));
         // Stop producing if you have way too many goods (3x ideal) and some money (5 days worth)
         if (!has_food) {
-            LoseMoney(trader, trader.IDLE_TAX);//$2 idleness fine
+            LoseMoney(trader, trader.GetIdleTax());//$2 idleness fine
             return;
         }
 
@@ -70,7 +70,7 @@ public:
     void TickRole(AITrader& trader) override {
         bool has_food = (0 < trader.Query("food"));
         if (!has_food) {
-            LoseMoney(trader, trader.IDLE_TAX);//$2 idleness fine
+            LoseMoney(trader, trader.GetIdleTax());//$2 idleness fine
             return;
         }
         Consume(trader, "food", 1);
@@ -86,7 +86,7 @@ public:
         int amount_metal = trader.Query("metal");
 
         if (!has_food) {
-            LoseMoney(trader, trader.IDLE_TAX);
+            LoseMoney(trader, trader.GetIdleTax());
         }
 
         Consume(trader, "food", 1);
@@ -106,7 +106,7 @@ public:
         bool has_tools = (0 < trader.Query("tools"));
 
         if (!has_food) {
-            LoseMoney(trader, trader.IDLE_TAX);
+            LoseMoney(trader, trader.GetIdleTax());
         }
         Consume(trader, "food", 1);
         if (has_tools) {
@@ -126,7 +126,7 @@ public:
         bool has_tools = (0 < trader.Query("tools"));
         int amount_ore = trader.Query("ore");
         if (!has_food) {
-            LoseMoney(trader, trader.IDLE_TAX);
+            LoseMoney(trader, trader.GetIdleTax());
         }
         Consume(trader, "food", 1);
 

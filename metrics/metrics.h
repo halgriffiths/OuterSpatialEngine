@@ -71,8 +71,8 @@ public:
             num_alive_metrics[role].emplace_back(curr_tick, num_alive[role]);
         }
 
-        sample1_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID]->money);
-        sample2_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->money);
+        sample1_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID]->QueryMoney());
+        sample2_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->QueryMoney());
 
         curr_tick++;
     }
@@ -155,7 +155,7 @@ public:
         gp << std::endl; //flush result
     }
 
-    void TrackDeath(std::string& class_name, int age) {
+    void TrackDeath(std::string class_name, int age) {
         avg_overall_age = (avg_overall_age*total_deaths + age)/(total_deaths+1);
         total_deaths++;
 

@@ -48,6 +48,7 @@ public:
 
 class AITrader : public Trader {
 private:
+    friend Role;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
     double MIN_PRICE = 0.01;
     bool initialised = false;
@@ -56,24 +57,24 @@ private:
     Inventory _inventory;
 
     std::weak_ptr<AuctionHouse> auction_house;
+    int auction_house_id = -1;
 
     std::map<std::string, std::vector<double>> _observedTradingRange;
 
     int  external_lookback = 50; //history range (num ticks)
     int internal_lookback = 50; //history range (num trades)
 
-public:
     double curr_profit = 0;
     double total_profit = 0;
-    double IDLE_TAX = 2;
-    std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
-    double money;
 
     bool destroyed = false;
     double money_last_round = 0;
     double profit = 0;
-
+    double IDLE_TAX = 2;
     ConsoleLogger logger;
+
+    std::string class_name; // eg "Farmer", "Woodcutter" etc. Auction House will verify this on registration. (TODO)
+    double money;
 
 public:
     AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
@@ -82,8 +83,9 @@ public:
     , logic(std::move(AI_logic))
     , class_name(class_name)
     , money(starting_money)
-    , logger(ConsoleLogger(class_name+std::to_string(id), log_level)){
+    , logger(ConsoleLogger(class_name+std::to_string(id), log_level)) {
         //construct inv
+        auction_house_id = auction_house.lock()->id;
         _inventory = Inventory(inv_capacity, starting_inv);
         for (const auto &item : starting_inv) {
             double base_price = auction_house.lock()->AverageHistoricalMidPrice(item.name, external_lookback);
@@ -92,7 +94,8 @@ public:
         }
     }
 
-    void PrintState();
+private:
+    // MESSAGE PROCESSING
     void FlushOutbox();
     void FlushInbox();
 
@@ -100,24 +103,10 @@ public:
     void ProcessAskResult(Message& message);
     void ProcessRegistrationResponse(Message& message);
 
-    // Inventory functions
-    bool HasMoney(double quantity) override;
-    double TryTakeMoney(double quantity, bool atomic) override;
-    void ForceTakeMoney(double quantity);
-    void AddMoney(double quantity) override;
-
-    bool HasCommodity(const std::string& commodity, int quantity) override;
-    int TryTakeCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
-    int TryAddCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
-
-    int GetIdeal(const std::string& name);
-    int Query(const std::string& name);
-    double QueryCost(const std::string& name);
-
-    // Trading functions
     void UpdatePriceModelFromBid(BidResult& result);
     void UpdatePriceModelFromAsk(const AskResult& result);
 
+    // INTERNAL LOGIC
     void GenerateOffers(const std::string& commodity);
     BidOffer CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation = 0);
     AskOffer CreateAsk(const std::string& commodity, int min_limit);
@@ -127,10 +116,30 @@ public:
 
     std::pair<double, double> ObserveTradingRange(const std::string& commodity, int window);
 
-    double GetProfit();
     // Misc
     void Destroy();
+public:
     void Tick();
+    // EXTERNAL QUERIES
+    bool HasMoney(double quantity) override;
+    bool HasCommodity(const std::string& commodity, int quantity) override;
+
+    int GetIdeal(const std::string& name);
+    int Query(const std::string& name);
+    double QueryCost(const std::string& name);
+
+    std::string GetClassName() {return class_name;};
+    double GetIdleTax() { return IDLE_TAX;};
+    bool IsDestroyed() {return destroyed;};
+    double QueryMoney() { return money;};
+
+    // EXTERNAL SETTERS (i.e. for auction house & role only)
+    double TryTakeMoney(double quantity, bool atomic) override;
+    void ForceTakeMoney(double quantity);
+    void AddMoney(double quantity) override;
+
+    int TryTakeCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
+    int TryAddCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
 };
 
 void AITrader::FlushOutbox() {
@@ -138,7 +147,7 @@ void AITrader::FlushOutbox() {
         while (!outbox.empty()) {
             auto& outgoing = outbox.back();
             // Trader can currently only talk to auction houses (not other traders)
-            if (outgoing.first != auction_house.lock()->id) {
+            if (outgoing.first != auction_house_id) {
                 logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
                 continue;
             }
@@ -299,7 +308,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
         logger.Log(Log::DEBUG, "Considering ask for "+commodity + std::string(" - Current surplus = ") + std::to_string(surplus));
         auto offer = CreateAsk(commodity, 1);
         if (offer.quantity > 0) {
-            SendMessage(*Message(id).AddAskOffer(offer), auction_house.lock()->id);
+            SendMessage(*Message(id).AddAskOffer(offer), auction_house_id);
         }
     }
 
@@ -330,7 +339,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
             desperation *= 1 - (0.4*(fulfillment - 0.5))/(1 + 0.4*std::abs(fulfillment-0.5));
             auto offer = CreateBid(commodity, min_limit, max_limit, desperation);
             if (offer.quantity > 0) {
-                SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
+                SendMessage(*Message(id).AddBidOffer(offer), auction_house_id);
             }
         }
     }
@@ -397,7 +406,6 @@ std::pair<double, double> AITrader::ObserveTradingRange(const std::string& commo
     return {min_observed, max_observed};
 }
 
-double AITrader::GetProfit() {return money - money_last_round;}
 // Misc
 void AITrader::Destroy() {
     auto res = auction_house.lock();
@@ -413,9 +421,6 @@ void AITrader::Tick() {
     if (destroyed) {
         return;
     }
-    curr_profit = GetProfit();
-    total_profit += curr_profit;
-    money_last_round = money;
     FlushInbox();
     if (initialised) {
         if (logic) {
@@ -436,15 +441,6 @@ void AITrader::Tick() {
     }
 }
 
-void AITrader::PrintState() {
-    std::cout <<"--------------------\nSTATUS: " << class_name << "-" << id << " age " << ticks << std::endl;
-    std::cout << "\tInventory:" << std::endl;
-    std::cout << "\t\tMoney: $" << money << std::endl;
-    for (auto& item : _inventory.inventory) {
-        std::cout << "\t\t" << item.first << ": " <<item.second.stored << "\t(ideal: " << item.second.ideal_quantity << ")" << std::endl;
-    }
-    std::cout << "Profit (total): " << curr_profit << " \t(" << total_profit << ")\n";
-}
 
 
 bool Role::Random(double chance) {

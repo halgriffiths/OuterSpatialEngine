@@ -44,6 +44,7 @@ struct OngoingSurplus {
 class FakeTrader : public Trader {
 private:
     std::weak_ptr<AuctionHouse> auction_house;
+    int auction_house_id = -1;
     int lookback = 20;
     double LOW_PRICE = 0.2;
     double HIGH_PRICE = 10;
@@ -53,7 +54,9 @@ private:
 public:
     FakeTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr)
         : Trader(id)
-        , auction_house(std::move(auction_house_ptr)) {}
+        , auction_house(std::move(auction_house_ptr)) {
+        auction_house_id = auction_house.lock()->id;
+    }
 
     bool HasMoney(double quantity) override;
     bool HasCommodity(const std::string& commodity, int quantity) override;
@@ -103,7 +106,7 @@ void FakeTrader::FlushOutbox() {
     while (!outbox.empty()) {
         auto& outgoing = outbox.back();
         // Trader can currently only talk to auction houses (not other traders)
-        if (outgoing.first != auction_house.lock()->id) {
+        if (outgoing.first != auction_house_id) {
             continue;
         }
         auction_house.lock()->ReceiveMessage(std::move(outgoing.second));
@@ -141,7 +144,7 @@ void FakeTrader::TriggerShortage(OngoingShortage& shortage) {
     double bid_price = shortage.base_price * price_distortion;
     bid_price = std::min(bid_price, HIGH_PRICE);
     auto offer = BidOffer(id, shortage.commodity, 50, bid_price);
-    SendMessage(*Message(id).AddBidOffer(offer), auction_house.lock()->id);
+    SendMessage(*Message(id).AddBidOffer(offer), auction_house_id);
 }
 
 void FakeTrader::TriggerSurplus(OngoingSurplus& surplus) {
@@ -150,7 +153,7 @@ void FakeTrader::TriggerSurplus(OngoingSurplus& surplus) {
     }
 
     if (surplus.start_tick == ticks) {
-        surplus.base_price = auction_house.lock()->AverageHistoricalBuyPrice(surplus.commodity, lookback);
+        surplus.base_price = auction_house.lock()->AverageHistoricalSellPrice(surplus.commodity, lookback);
     }
     // % through event
     double progress = double (ticks - surplus.start_tick)/surplus.duration;
@@ -159,6 +162,6 @@ void FakeTrader::TriggerSurplus(OngoingSurplus& surplus) {
     double ask_price = surplus.base_price * price_distortion;
     ask_price = std::max(ask_price, LOW_PRICE);
     auto offer = AskOffer(id, surplus.commodity, 50, ask_price);
-    SendMessage(*Message(id).AddAskOffer(offer), auction_house.lock()->id);
+    SendMessage(*Message(id).AddAskOffer(offer), auction_house_id);
 }
 #endif//CPPBAZAARBOT_FAKE_TRADER_H
