@@ -74,7 +74,7 @@ public:
             return;
         }
         Consume(trader, "food", 1);
-        Produce(trader, "fertilizer", 1);
+        Produce(trader, "fertilizer", 1, 0.5);
     }
 };
 

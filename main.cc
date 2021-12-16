@@ -73,7 +73,7 @@ std::string GetProducer(std::string& commodity) {
 std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std::shared_ptr<AuctionHouse>& auction_house, std::mt19937& gen) {
     std::vector<double> weights;
     double gamma = -0.02;
-    int lookback = 30;
+    int lookback = 100;
     for (auto& commodity : tracked_goods) {
         double asks = auction_house->AverageHistoricalAsks(commodity, lookback);
         double bids = auction_house->AverageHistoricalBids(commodity, lookback);
