@@ -7,7 +7,7 @@
 
 #include "../traders/AI_trader.h"
 # include <regex>
-
+#include <fstream>
 namespace {
     // SRC: https://www.jeremymorgan.com/tutorials/c-programming/how-to-capture-the-output-of-a-linux-command-in-c/
     std::string GetStdoutFromCommand(std::string cmd) {
@@ -51,10 +51,14 @@ private:
     std::map<std::string, std::vector<std::pair<double, double>>> sample1_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> sample2_metrics;
 
+    std::map<std::string, std::unique_ptr<std::ofstream>> data_files;
 public:
     GlobalMetrics(std::vector<std::string> tracked_goods, std::vector<std::string> tracked_roles)
             : tracked_goods(tracked_goods)
             , tracked_roles(tracked_roles) {
+
+        init_datafiles();
+
         sample1_metrics["money"] = {};
         sample2_metrics["money"] = {};
 
@@ -82,22 +86,33 @@ public:
             deaths_per_class[role] = 0;
         }
     }
-    void update_plotfile(const std::string& filename = "tmp/plot.gnu") {
-//        //should only be called if terminal_size, xrange, or plot
-//        set term dumb 143 32
-//        set xrange [985:1085]
-//        set offsets 0, 0, 1, 0
-//        set title 'Prices'
-//        plot 'tmp/food.dat' with lines title 'food', 'tmp/wood.dat' with lines title 'wood', 'tmp/fertilizer.dat' with lines title 'fertilizer', 'tmp/ore.dat' with lines title 'ore', 'tmp/metal.dat' with lines title 'metal', 'tmp/tools.dat' with lines title 'tools',
 
+    void init_datafiles() {
+        for (auto& good : tracked_goods) {
+            data_files[good] = std::make_unique<std::ofstream>();
+            data_files[good]->open(("tmp/"+good + ".dat").c_str(), std::ios::trunc);
+            *(data_files[good].get()) << "# raw data file for " << good << std::endl;
+            *(data_files[good].get()) << "0 0\n";
+        }
+    }
+    void update_datafiles() {
+        for (auto& item : data_files) {
+            item.second->close();
+            item.second->open(("tmp/"+item.first + ".dat").c_str(), std::ios::app);
+        }
     }
     void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
         for (auto& good : tracked_goods) {
+
+            double price = auction_house->AverageHistoricalPrice(good, 10);
             double asks = auction_house->AverageHistoricalAsks(good, 10);
             double bids = auction_house->AverageHistoricalBids(good, 10);
+            double trades = auction_house->AverageHistoricalTrades(good, 10);
 
-            avg_price_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalPrice(good, 5));
-            avg_trades_metrics[good].emplace_back(curr_tick, auction_house->AverageHistoricalTrades(good, 1));
+            *(data_files[good].get()) << curr_tick << " " << price << "\n";
+
+            avg_price_metrics[good].emplace_back(curr_tick, price);
+            avg_trades_metrics[good].emplace_back(curr_tick, trades);
             avg_asks_metrics[good].emplace_back(curr_tick, asks);
             avg_bids_metrics[good].emplace_back(curr_tick, bids);
 
@@ -163,38 +178,6 @@ public:
 //    }
 //    plots.add_plot1d(sample2_metrics["money"], "with lines title 'money'");
 //    gp << plots;
-    }
-
-    void plot_terse(int window = 0) {
-        // Plot results
-        Gnuplot gp(std::fopen("tmp/plot.gnu", "w"));
-        gp << "set term dumb 180 65\n";
-        if (window > 0 && window < curr_tick) {
-            gp << "set xrange [" + std::to_string(curr_tick - window) + ":"+ std::to_string(curr_tick) +"]\n";
-        }
-        gp << "set offsets 0, 0, 1, 0\n";
-        gp << "set title 'Prices'\n";
-        auto plots = gp.plotGroup();
-        for (auto& good : tracked_goods) {
-            plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
-        }
-        gp << plots;
-    }
-
-    void plot_terse_tofile(int window = 0, int x = 180, int y = 65) {
-        Gnuplot gp(std::fopen("tmp/plot.gnu", "w"));
-        gp << "set term dumb " << x << " " << y << "\n";
-        if (window > 0 && window < curr_tick) {
-            gp << "set xrange [" + std::to_string(curr_tick - window) + ":"+ std::to_string(curr_tick) +"]\n";
-        }
-        gp << "set offsets 0, 0, 1, 0\n";
-        gp << "set title 'Prices'\n";
-        auto plots = gp.plotGroup();
-        gp << "plot";
-        for (auto& good : tracked_goods) {
-            gp << gp.file1d(avg_price_metrics[good], "tmp/"+good+".dat") << "with lines title '"+good+std::string("',");
-        }
-        gp << std::endl; //flush result
     }
 
     std::string plot_terminal(int window = 0, int x = 90, int y = 30) {

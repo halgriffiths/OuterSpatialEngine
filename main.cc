@@ -227,8 +227,9 @@ void Run(bool animation) {
                  gen,
                  inv);
         if (animation) {
+            global_metrics.update_datafiles();
             display_plot(global_metrics, WINDOW_SIZE);
-            std::this_thread::sleep_for(std::chrono::milliseconds(STEP_PAUSE_MS));
+            //std::this_thread::sleep_for(std::chrono::milliseconds(STEP_PAUSE_MS));
         }
         duration<double, std::milli> ms_double = high_resolution_clock::now() - t1;
         std::cout << "step time: " << ms_double.count()/STEP_SIZE << "ms";
