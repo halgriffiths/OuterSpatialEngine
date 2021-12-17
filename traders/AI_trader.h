@@ -66,7 +66,7 @@ private:
     int internal_lookback = 50; //history range (num trades)
 
     bool destroyed = false;
-    double IDLE_TAX = 2;
+    double IDLE_TAX = 20;
     ConsoleLogger logger;
 
     double money;

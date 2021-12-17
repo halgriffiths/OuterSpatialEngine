@@ -28,7 +28,7 @@ public:
         if (log.count(name) > 0) {
             return;// already registered
         }
-        double starting_value = 1;
+        double starting_value = 10;
         log[name] = {starting_value};
     }
 

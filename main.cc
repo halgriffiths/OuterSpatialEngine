@@ -12,8 +12,8 @@ std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::shared_ptr<AuctionHouse>& auction_house,
                                     std::map<std::string, std::vector<InventoryItem>>& inv,
                                     std::mt19937& gen) {
-    double STARTING_MONEY = 50.0;
-    double MIN_COST = 1;
+    double STARTING_MONEY = 500.0;
+    double MIN_COST = 10;
     std::uniform_real_distribution<> random_money(0.5*STARTING_MONEY, 1.5*STARTING_MONEY); // define the range
     std::uniform_real_distribution<> random_cost(0.9*MIN_COST, 1.1*MIN_COST); // define the range
     if (class_name == "farmer") {
