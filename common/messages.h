@@ -75,6 +75,7 @@ struct RegisterResponse {
 struct BidResult {
     int sender_id;
     std::string commodity;
+    bool broker_fee_paid = false;
     int quantity_untraded = 0;
     int quantity_traded = 0;
     double avg_price = 0;
@@ -125,6 +126,7 @@ struct BidResult {
 struct AskResult {
     int sender_id;
     std::string commodity;
+    bool broker_fee_paid = false;
     int quantity_untraded = 0;
     int quantity_traded = 0;
     double avg_price = 0;

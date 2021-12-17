@@ -81,7 +81,7 @@ public:
         auction_house_id = auction_house.lock()->id;
         _inventory = Inventory(inv_capacity, starting_inv);
         for (const auto &item : starting_inv) {
-            double base_price = auction_house.lock()->AverageHistoricalMidPrice(item.name, external_lookback);
+            double base_price = auction_house.lock()->AverageHistoricalPrice(item.name, external_lookback);
             _observedTradingRange[item.name] = {base_price*0.5, base_price*2};
             _inventory.SetCost(item.name, base_price);
         }
@@ -336,7 +336,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     }
 }
 BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation) {
-    double fair_bid_price = (auction_house.lock()->AverageHistoricalMidPrice(commodity, external_lookback));
+    double fair_bid_price = (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
     //scale between price based on need
     double max_price = money;
     double min_price = MIN_PRICE;
@@ -348,16 +348,9 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     return BidOffer(id, commodity, quantity, bid_price);
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
-    //AI agents offer a fair ask price - costs + 2% profit
-    double fair_price = QueryCost(commodity) * 1.02;
-    double market_price = auction_house.lock()->AverageHistoricalMidPrice(commodity, external_lookback);
-    double ask_price;
-    if (fair_price > market_price) {
-        ask_price = fair_price;
-    } else {
-        std::uniform_real_distribution<> random_price(fair_price, market_price);
-        ask_price = random_price(rng_gen);
-    }
+    //AI agents offer a fair ask price - costs + 15% profit
+    double fair_price = QueryCost(commodity) * 1.15;
+    double ask_price = fair_price;
     ask_price = std::max(MIN_PRICE, ask_price);
     int quantity = DetermineSaleQuantity(commodity);
     //can't sell less than limit

@@ -135,7 +135,7 @@ void FakeTrader::TriggerShortage(OngoingShortage& shortage) {
     }
 
     if (shortage.start_tick == ticks) {
-        shortage.base_price = auction_house.lock()->AverageHistoricalBuyPrice(shortage.commodity, lookback);
+        shortage.base_price = auction_house.lock()->AverageHistoricalPrice(shortage.commodity, lookback);
     }
     // % through event
     double progress = double (ticks - shortage.start_tick)/shortage.duration;
@@ -153,7 +153,7 @@ void FakeTrader::TriggerSurplus(OngoingSurplus& surplus) {
     }
 
     if (surplus.start_tick == ticks) {
-        surplus.base_price = auction_house.lock()->AverageHistoricalSellPrice(surplus.commodity, lookback);
+        surplus.base_price = auction_house.lock()->AverageHistoricalPrice(surplus.commodity, lookback);
     }
     // % through event
     double progress = double (ticks - surplus.start_tick)/surplus.duration;

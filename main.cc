@@ -232,10 +232,10 @@ void Run(bool animation) {
     }
     std::cout << std::endl;
     for (auto& good : tracked_goods) {
-        double price = auction_house->AverageHistoricalSellPrice(good, NUM_TICKS);
+        double price = auction_house->AverageHistoricalPrice(good, NUM_TICKS);
 
         std::cout << "\t\t$" << price;
-        double pc_change = auction_house->history.sell_prices.percentage_change(good, NUM_TICKS);
+        double pc_change = auction_house->history.prices.percentage_change(good, NUM_TICKS);
         if (pc_change < 0) {
             //▼
             std::cout << "\033[1;31m(▼" << pc_change << "%)\033[0m";
@@ -256,6 +256,7 @@ void Run(bool animation) {
         survivor_age += survivor->ticks;
     }
     std::cout << "Survivor avg age: " << survivor_age / all_traders.size() << std::endl;
+    std::cout << "auction house profit :" << auction_house->spread_profit;
 }
 
 // ---------------- MAIN ----------

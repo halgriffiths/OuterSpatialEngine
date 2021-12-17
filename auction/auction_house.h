@@ -23,6 +23,8 @@ public:
     History history;
 
 private:
+    double SALES_TAX = 0.08;
+    double BROKER_FEE = 0.03;
     int ticks = 0;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
     std::map<std::string, Commodity> known_commodities;
@@ -31,8 +33,9 @@ private:
     std::map<std::string, std::vector<BidOffer>> bid_book = {};
     std::map<std::string, std::vector<AskOffer>> ask_book = {};
     ConsoleLogger logger;
-    double spread_profit = 0;
+
 public:
+    double spread_profit = 0;
     AuctionHouse(int auction_house_id, Log::LogLevel verbosity)
         : Agent(auction_house_id)
         , logger(ConsoleLogger(std::string("AH")+std::to_string(id), verbosity)) {
@@ -139,16 +142,10 @@ public:
     }
 
     double StdDev(const std::string& commodity, int window) {
-        return history.buy_prices.variance(commodity, window);
+        return history.prices.variance(commodity, window);
     }
-    double AverageHistoricalBuyPrice(const std::string& commodity, int window) {
-        return history.buy_prices.average(commodity, window);
-    }
-    double AverageHistoricalSellPrice(const std::string& commodity, int window) {
-        return history.sell_prices.average(commodity, window);
-    }
-    double AverageHistoricalMidPrice(const std::string& commodity, int window) {
-        return (AverageHistoricalBuyPrice(commodity, window) + AverageHistoricalSellPrice(commodity, window))/2;
+    double AverageHistoricalPrice(const std::string& commodity, int window) {
+        return history.prices.average(commodity, window);
     }
     double AverageHistoricalTrades(const std::string& commodity, int window) {
         return history.trades.average(commodity, window);
@@ -229,7 +226,7 @@ private:
     // 0 - success
     // 1 - seller failed
     // 2 - buyer failed
-    int MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double sale_price, double buy_price) {
+    int MakeTransaction(const std::string& commodity, int buyer, int seller, int quantity, double clearing_price) {
         // take from seller
         auto actual_quantity = known_traders[seller]->TryTakeCommodity(commodity, quantity, 0, true);
         if (actual_quantity == 0) {
@@ -237,21 +234,45 @@ private:
             logger.Log(Log::ERROR, "Seller lacks good! Aborting trade");
             return 1;
         }
-        auto actual_money = known_traders[buyer]->TryTakeMoney(actual_quantity*buy_price, true);
+        auto actual_money = known_traders[buyer]->TryTakeMoney(actual_quantity*clearing_price, true);
         if (actual_money == 0) {
             // this may be unrecoverable, not sure
             logger.Log(Log::ERROR, "Buyer lacks money! Aborting trade");
             return 2;
         }
 
-        known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, buy_price, false);
-        known_traders[seller]->AddMoney(actual_quantity*sale_price);
+        known_traders[buyer]->TryAddCommodity(commodity, actual_quantity, clearing_price, false);
+        //take sales tax from seller
+        double profit = actual_quantity*clearing_price;
+        known_traders[seller]->AddMoney(profit*(1-SALES_TAX));
+        spread_profit += profit*SALES_TAX;
 
-        spread_profit += buy_price - sale_price;
-
-        auto info_msg = std::string("Made trade: ") + std::to_string(seller) + std::string(" >>> ") + std::to_string(buyer) + std::string(" : ") + commodity + std::string(" x") + std::to_string(quantity) + std::string(" @ $") + std::to_string(buy_price);
+        auto info_msg = std::string("Made trade: ") + std::to_string(seller) + std::string(" >>> ") + std::to_string(buyer) + std::string(" : ") + commodity + std::string(" x") + std::to_string(quantity) + std::string(" @ $") + std::to_string(clearing_price);
         logger.Log(Log::INFO, info_msg);
         return 0;
+    }
+
+    void TakeBrokerFee(BidOffer& offer, BidResult& result) {
+        double fee = offer.quantity*offer.unit_price*BROKER_FEE;
+        auto res = known_traders[offer.sender_id]->TryTakeMoney(fee, true);
+        if (res > 0) {
+            spread_profit += fee;
+            result.broker_fee_paid = true;
+        } else {
+            //failed to take broker fee
+            return;
+        }
+    }
+    void TakeBrokerFee(AskOffer& offer, AskResult& result) {
+        double fee = offer.quantity*offer.unit_price*BROKER_FEE;
+        auto res = known_traders[offer.sender_id]->TryTakeMoney(fee, true);
+        if (res > 0) {
+            spread_profit += fee;
+            result.broker_fee_paid = true;
+        } else {
+            //failed to take broker fee
+            return;
+        }
     }
     void ResolveOffers(const std::string& commodity) {
         std::vector<BidOffer>& bids = bid_book[commodity];
@@ -266,8 +287,7 @@ private:
         int num_trades_this_tick = 0;
         double money_traded_this_tick = 0;
         double units_traded_this_tick = 0;
-        double avg_buy_price_this_tick = 0;
-        double avg_sell_price_this_tick = 0;
+        double avg_price_this_tick = 0;
         double supply = 0;
         double demand = 0;
 
@@ -285,13 +305,19 @@ private:
             BidOffer& curr_bid = bids[0];
             AskOffer& curr_ask = asks[0];
 
-            if (!CheckBidStake(curr_bid) || curr_ask.sender_id == curr_bid.sender_id) {
+            if (!bid_result.broker_fee_paid) {
+                TakeBrokerFee(curr_bid, bid_result);
+            }
+            if (!ask_result.broker_fee_paid) {
+                TakeBrokerFee(curr_ask, ask_result);
+            }
+            if (!bid_result.broker_fee_paid || !CheckBidStake(curr_bid) || curr_ask.sender_id == curr_bid.sender_id) {
                 CloseBid(curr_bid, std::move(bid_result));
                 bids.erase(bids.begin());
                 bid_result = BidResult(id, commodity);
                 continue;
             }
-            if (!CheckAskStake(curr_ask)) {
+            if (!ask_result.broker_fee_paid ||!CheckAskStake(curr_ask)) {
                 CloseAsk(curr_ask, std::move(ask_result));
                 asks.erase(asks.begin());
                 ask_result = AskResult(id, commodity);
@@ -306,14 +332,13 @@ private:
             }
 
             int quantity_traded = std::min(curr_bid.quantity, curr_ask.quantity);
-            double seller_price = curr_ask.unit_price;
-            double buyer_price = curr_bid.unit_price;
+            double clearing_price = curr_ask.unit_price;
 
             if (quantity_traded > 0) {
                 // MAKE TRANSACTION
                 int buyer = curr_bid.sender_id;
                 int seller = curr_ask.sender_id;
-                auto res = MakeTransaction(commodity, buyer, seller, quantity_traded, seller_price, buyer_price);
+                auto res = MakeTransaction(commodity, buyer, seller, quantity_traded, clearing_price);
                 if (res == 1) {
                     //seller failed
                     CloseAsk(curr_ask, std::move(ask_result));
@@ -333,15 +358,14 @@ private:
                 curr_bid.quantity -= quantity_traded;
                 curr_ask.quantity -= quantity_traded;
 
-                bid_result.UpdateWithTrade(quantity_traded, buyer_price);
-                ask_result.UpdateWithTrade(quantity_traded, seller_price);
+                bid_result.UpdateWithTrade(quantity_traded, clearing_price);
+                ask_result.UpdateWithTrade(quantity_traded, clearing_price);
 
                 // update per-tick metrics
-                avg_buy_price_this_tick = (avg_buy_price_this_tick*units_traded_this_tick + buyer_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
-                avg_sell_price_this_tick = (avg_sell_price_this_tick*units_traded_this_tick + seller_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
+                avg_price_this_tick = (avg_price_this_tick*units_traded_this_tick + clearing_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
 
                 units_traded_this_tick += quantity_traded;
-                money_traded_this_tick += quantity_traded*buyer_price;
+                money_traded_this_tick += quantity_traded*clearing_price;
                 num_trades_this_tick += 1;
             }
 
@@ -380,12 +404,10 @@ private:
         history.trades.add(commodity, num_trades_this_tick);
 
         if (units_traded_this_tick > 0) {
-            history.buy_prices.add(commodity, avg_buy_price_this_tick);
-            history.sell_prices.add(commodity, avg_sell_price_this_tick);
+            history.prices.add(commodity, avg_price_this_tick);
         } else {
             // Set to same as last-tick's average if no trades occurred
-            history.buy_prices.add(commodity, history.buy_prices.average(commodity, 1));
-            history.sell_prices.add(commodity, history.sell_prices.average(commodity, 1));
+            history.prices.add(commodity, history.prices.average(commodity, 1));
         }
     }
 
