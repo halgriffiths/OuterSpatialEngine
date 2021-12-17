@@ -126,7 +126,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
 
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = (animation) ? 2000 : 2000;
+    int NUM_TICKS = (animation) ? 2000 : 500;
     int WINDOW_SIZE = 100;
     int STEP_SIZE = 5;
     int STEP_PAUSE_MS = 100;
@@ -200,8 +200,8 @@ void Run(bool animation) {
     {
         fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
         fake_trader->Tick();
-        fake_trader->RegisterShortage("fertilizer", 3, 620, 40);
-        fake_trader->RegisterSurplus("fertilizer", -0.9, 220, 100);
+//        fake_trader->RegisterShortage("fertilizer", 3, 620, 40);
+//        fake_trader->RegisterSurplus("fertilizer", -0.9, 220, 100);
         max_id++;
     }
 
