@@ -352,12 +352,8 @@ AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     double fair_price = QueryCost(commodity) * 1.15;
     double market_price = auction_house.lock()->AverageHistoricalBuyPrice(commodity, external_lookback);
     double ask_price;
-    if (fair_price > market_price) {
-        ask_price = fair_price;
-    } else {
-        std::uniform_real_distribution<> random_price(fair_price, market_price);
-        ask_price = random_price(rng_gen);
-    }
+    std::uniform_real_distribution<> random_price(fair_price, market_price);
+    ask_price = random_price(rng_gen);
     ask_price = std::max(MIN_PRICE, ask_price);
     int quantity = DetermineSaleQuantity(commodity);
     //can't sell less than limit

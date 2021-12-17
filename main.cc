@@ -130,9 +130,17 @@ void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int NUM_TICKS = (animation) ? 2000 : 2000;
     int WINDOW_SIZE = 100;
-    int STEP_SIZE = 10;
+    int STEP_SIZE = 1;
     int STEP_PAUSE_MS = 100;
+    double target_FPS = 2;
 
+    int target_frametime;
+    if (animation) {
+        target_frametime = 1000/target_FPS;
+
+    } else {
+        target_frametime = 0;
+    }
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::duration;
@@ -228,15 +236,22 @@ void Run(bool animation) {
                 global_metrics,
                  gen,
                  inv);
-        if (animation) {
+        if (animation && curr_tick > WINDOW_SIZE) {
             global_metrics.update_datafiles();
             display_plot(global_metrics, WINDOW_SIZE);
-            //std::this_thread::sleep_for(std::chrono::milliseconds(STEP_PAUSE_MS));
         }
+
         duration<double, std::milli> ms_double = high_resolution_clock::now() - t1;
-        std::cout << "step time: " << ms_double.count()/STEP_SIZE << "ms";
-        std::cout << "   FPS: " << 1000/ms_double.count() << std::endl;
-        frametimes.emplace_back(ms_double.count());
+        int frametime = ms_double.count();
+
+        if (animation && curr_tick > WINDOW_SIZE && frametime < target_frametime) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(target_frametime-frametime));
+        }
+        ms_double = high_resolution_clock::now() - t1;
+        frametime = ms_double.count();
+        //std::cout << "TPS: " << frametime/STEP_SIZE << "ms";
+        //std::cout << "   FPS: " << 1000/frametime << std::endl;
+        frametimes.emplace_back(frametime);
     }
 
     //Plot final results
