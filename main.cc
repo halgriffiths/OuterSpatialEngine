@@ -128,8 +128,13 @@ void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int NUM_TICKS = (animation) ? 2000 : 500;
     int WINDOW_SIZE = 100;
-    int STEP_SIZE = 5;
+    int STEP_SIZE = 10;
     int STEP_PAUSE_MS = 100;
+
+    using std::chrono::high_resolution_clock;
+    using std::chrono::duration_cast;
+    using std::chrono::duration;
+    using std::chrono::milliseconds;
 
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 gen(rd()); // seed the generator
@@ -208,8 +213,10 @@ void Run(bool animation) {
     // --- MAIN LOOP ---
     std::cout << std::fixed;
     std::cout << std::setprecision(2);
-
+    auto t1 = high_resolution_clock::now();
+    std::vector<double> frametimes;
     for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick += STEP_SIZE) {
+        t1 = high_resolution_clock::now();
         AdvanceTicks(curr_tick, STEP_SIZE, max_id,
                 tracked_goods,
                 tracked_roles,
@@ -223,6 +230,10 @@ void Run(bool animation) {
             display_plot(global_metrics, WINDOW_SIZE);
             std::this_thread::sleep_for(std::chrono::milliseconds(STEP_PAUSE_MS));
         }
+        duration<double, std::milli> ms_double = high_resolution_clock::now() - t1;
+        std::cout << "step time: " << ms_double.count()/STEP_SIZE << "ms";
+        std::cout << "   FPS: " << 1000/ms_double.count() << std::endl;
+        frametimes.emplace_back(ms_double.count());
     }
 
     //Plot final results
@@ -260,7 +271,7 @@ void Run(bool animation) {
 }
 
 // ---------------- MAIN ----------
-int main() {
-    Run(false);
+int main(int argc, char *argv[]) {
+    Run((argc > 1));
     return 0;
 }
