@@ -15,6 +15,8 @@
 #include "traders/fake_trader.h"
 #include "traders/roles.h"
 
+#include "metrics/display.h"
+
 std::shared_ptr<AITrader> CreateAndRegisterBasic(int id,
                                                     const std::vector<std::pair<Commodity, int>>& inv,
                                                     const std::shared_ptr<AuctionHouse>& auction_house) {

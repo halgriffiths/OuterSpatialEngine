@@ -129,7 +129,7 @@ void Run(bool animation) {
     int NUM_TICKS = (animation) ? 2000 : 2000;
     int WINDOW_SIZE = 100;
     int STEP_SIZE = 5;
-    int STEP_PAUSE_MS = 1000;
+    int STEP_PAUSE_MS = 100;
 
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 gen(rd()); // seed the generator
@@ -219,28 +219,8 @@ void Run(bool animation) {
                 global_metrics,
                  gen,
                  inv);
-        if (animation && curr_tick >= WINDOW_SIZE) {
-            global_metrics.plot_terse(WINDOW_SIZE);
-            for (auto& good : tracked_goods) {
-                std::cout << "\t\t\t" << good;
-            }
-            std::cout << std::endl;
-            for (auto& good : tracked_goods) {
-                double price = auction_house->AverageHistoricalBuyPrice(good, WINDOW_SIZE);
-
-                std::cout << "\t\t$" << price;
-                double pc_change = auction_house->history.buy_prices.percentage_change(good, WINDOW_SIZE);
-                if (pc_change < 0) {
-                    //▼
-                    std::cout << "\033[1;31m(▼" << pc_change << "%)\033[0m";
-                } else if (pc_change > 0) {
-                    //▲
-                    std::cout << "\033[1;32m(▲" << pc_change << "%)\033[0m";
-                } else {
-                    std::cout << "(" << pc_change << "%)";
-                }
-            }
-            std::cout << std::endl;
+        if (animation) {
+            display_plot(global_metrics, WINDOW_SIZE);
             std::this_thread::sleep_for(std::chrono::milliseconds(STEP_PAUSE_MS));
         }
     }

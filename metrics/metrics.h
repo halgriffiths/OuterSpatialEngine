@@ -6,17 +6,39 @@
 #define CPPBAZAARBOT_METRICS_H
 
 #include "../traders/AI_trader.h"
+# include <regex>
+
+namespace {
+    // SRC: https://www.jeremymorgan.com/tutorials/c-programming/how-to-capture-the-output-of-a-linux-command-in-c/
+    std::string GetStdoutFromCommand(std::string cmd) {
+        std::string data;
+        FILE * stream;
+        const int max_buffer = 256;
+        char buffer[max_buffer];
+        cmd.append(" 2>&1");
+
+        stream = popen(cmd.c_str(), "r");
+
+        if (stream) {
+            while (!feof(stream))
+                if (fgets(buffer, max_buffer, stream) != NULL) data.append(buffer);
+            pclose(stream);
+        }
+        return data;
+    }
+}
 
 class GlobalMetrics {
 public:
     std::vector<std::string> tracked_goods;
+    std::map<std::string, bool> visible;
     std::vector<std::string> tracked_roles;
     int total_deaths = 0;
     double avg_overall_age = 0;
     std::map<std::string, int> deaths_per_class;
     std::map<std::string, double> age_per_class;
 private:
-
+    std::map<std::string, std::tuple<std::string, std::string>> hardcoded_legend;
     int curr_tick = 0;
     int SAMPLE_ID = 0;
     int SAMPLE_ID2 = 1;
@@ -35,7 +57,16 @@ public:
             , tracked_roles(tracked_roles) {
         sample1_metrics["money"] = {};
         sample2_metrics["money"] = {};
+
+        hardcoded_legend["food"] = {R"(\*)", "\x1b[1;32m*\x1b[0m"};
+        hardcoded_legend["wood"] = {"#", "\x1b[1;33m#\x1b[0m"};
+        hardcoded_legend["fertilizer"] = {R"(\$)", "\x1b[1;35m$\x1b[0m"};
+        hardcoded_legend["ore"] = {"%", "\x1b[1;31m%\x1b[0m"};
+        hardcoded_legend["metal"] = {"@", "\x1b[1;37m@\x1b[0m"};
+        hardcoded_legend["tools"] = {"&", "\x1b[1;34m&\x1b[0m"};
+
         for (auto& good : tracked_goods) {
+            visible[good] = true;
             net_supply_metrics[good] = {};
             avg_price_metrics[good] = {};
             avg_trades_metrics[good] = {};
@@ -51,7 +82,15 @@ public:
             deaths_per_class[role] = 0;
         }
     }
+    void update_plotfile(const std::string& filename = "tmp/plot.gnu") {
+//        //should only be called if terminal_size, xrange, or plot
+//        set term dumb 143 32
+//        set xrange [985:1085]
+//        set offsets 0, 0, 1, 0
+//        set title 'Prices'
+//        plot 'tmp/food.dat' with lines title 'food', 'tmp/wood.dat' with lines title 'wood', 'tmp/fertilizer.dat' with lines title 'fertilizer', 'tmp/ore.dat' with lines title 'ore', 'tmp/metal.dat' with lines title 'metal', 'tmp/tools.dat' with lines title 'tools',
 
+    }
     void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
         for (auto& good : tracked_goods) {
             double asks = auction_house->AverageHistoricalAsks(good, 10);
@@ -128,7 +167,7 @@ public:
 
     void plot_terse(int window = 0) {
         // Plot results
-        Gnuplot gp;
+        Gnuplot gp(std::fopen("tmp/plot.gnu", "w"));
         gp << "set term dumb 180 65\n";
         if (window > 0 && window < curr_tick) {
             gp << "set xrange [" + std::to_string(curr_tick - window) + ":"+ std::to_string(curr_tick) +"]\n";
@@ -142,17 +181,82 @@ public:
         gp << plots;
     }
 
-    void plot_terse_tofile() {
-        Gnuplot gp(std::fopen("plot.gnu", "w"));
-        gp << "set term dumb 180 65\n";
+    void plot_terse_tofile(int window = 0, int x = 180, int y = 65) {
+        Gnuplot gp(std::fopen("tmp/plot.gnu", "w"));
+        gp << "set term dumb " << x << " " << y << "\n";
+        if (window > 0 && window < curr_tick) {
+            gp << "set xrange [" + std::to_string(curr_tick - window) + ":"+ std::to_string(curr_tick) +"]\n";
+        }
         gp << "set offsets 0, 0, 1, 0\n";
         gp << "set title 'Prices'\n";
         auto plots = gp.plotGroup();
         gp << "plot";
         for (auto& good : tracked_goods) {
-            gp << gp.file1d(avg_price_metrics[good], good+".dat") << "with lines title '"+good+std::string("',");
+            gp << gp.file1d(avg_price_metrics[good], "tmp/"+good+".dat") << "with lines title '"+good+std::string("',");
         }
         gp << std::endl; //flush result
+    }
+
+    std::string plot_terminal(int window = 0, int x = 90, int y = 30) {
+        std::string args = "gnuplot -e \"set term dumb " + std::to_string(x)+ " " + std::to_string(y);
+        args += ";set offsets 0, 0, 0, 0";
+        args += ";set title 'Prices'";
+        args += ";set xrange [" + std::to_string(curr_tick - window) + ":" + std::to_string(curr_tick) + "]";
+        args += ";plot ";
+        for (auto& good : tracked_goods) {
+            if (visible[good]) {
+                args += "'tmp/"+good+".dat' with lines title '" + good + "',";
+            }
+        }
+        args += "\"";
+        // GENERATE ASCII PLOT
+        auto out = GetStdoutFromCommand(args);
+
+        // Set colors using ANSI codes
+        // Could do this all in 1 pass, but O(n) + O(n) is still O(n)
+        for (auto& leg : hardcoded_legend) {
+            out = std::regex_replace(out, std::regex(std::get<0>(leg.second)), std::get<1>(leg.second));
+        }
+
+        // ADD LEGEND
+        for (auto& good : tracked_goods) {
+            double price = avg_price_metrics[good].back().second;
+            std::string price_str = std::to_string(price);
+            price_str = price_str.substr(0, price_str.find(".")+3);
+
+            double pc_change = GetPercentageChange(good, window);
+            std::string pc_change_str = std::to_string(pc_change);
+            pc_change_str = pc_change_str.substr(0, pc_change_str.find(".")+3);
+
+            out += "\n";
+            out += std::get<1>(hardcoded_legend[good])+std::get<1>(hardcoded_legend[good])+std::get<1>(hardcoded_legend[good])+std::get<1>(hardcoded_legend[good]);
+            out += " "+good;
+            out += ": $";
+            out += price_str;
+            if (pc_change < 0) {
+                //▼
+                out += " \033[1;31m(▼" + pc_change_str + "%)\033[0m";
+            } else if (pc_change > 0) {
+                //▲
+                out += " \033[1;32m(▲" +pc_change_str + "%)\033[0m";
+            } else {
+                out += " (" + pc_change_str + "%) ";
+            }
+        }
+        return out;
+    }
+
+    double GetPercentageChange(std::string name, int window) {
+        double prev_value;
+        int size = avg_price_metrics[name].size();
+        if (window <= size) {
+            prev_value = avg_price_metrics[name][size - window].second;
+        } else {
+            prev_value = avg_price_metrics[name][0].second;
+        }
+
+        double curr_value = avg_price_metrics[name].back().second;
+        return 100*(curr_value- prev_value)/prev_value;
     }
 
     void TrackDeath(std::string class_name, int age) {
