@@ -53,7 +53,7 @@ private:
 
     std::map<std::string, std::unique_ptr<std::ofstream>> data_files;
 
-    int lookback = 2;
+    int lookback = 5;
 public:
     GlobalMetrics(std::vector<std::string> tracked_goods, std::vector<std::string> tracked_roles)
             : tracked_goods(tracked_goods)

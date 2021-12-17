@@ -144,6 +144,9 @@ public:
     double StdDev(const std::string& commodity, int window) {
         return history.prices.variance(commodity, window);
     }
+    double AverageHistoricalBuyPrice(const std::string& commodity, int window) {
+        return history.buy_prices.average(commodity, window);
+    }
     double AverageHistoricalPrice(const std::string& commodity, int window) {
         return history.prices.average(commodity, window);
     }
@@ -287,7 +290,10 @@ private:
         int num_trades_this_tick = 0;
         double money_traded_this_tick = 0;
         double units_traded_this_tick = 0;
+
+        double avg_buy_price_this_tick = 0;
         double avg_price_this_tick = 0;
+
         double supply = 0;
         double demand = 0;
 
@@ -363,6 +369,7 @@ private:
 
                 // update per-tick metrics
                 avg_price_this_tick = (avg_price_this_tick*units_traded_this_tick + clearing_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
+                avg_buy_price_this_tick = (avg_buy_price_this_tick*units_traded_this_tick + curr_bid.unit_price*quantity_traded)/(units_traded_this_tick + quantity_traded);
 
                 units_traded_this_tick += quantity_traded;
                 money_traded_this_tick += quantity_traded*clearing_price;
@@ -404,9 +411,11 @@ private:
         history.trades.add(commodity, num_trades_this_tick);
 
         if (units_traded_this_tick > 0) {
+            history.buy_prices.add(commodity, avg_buy_price_this_tick);
             history.prices.add(commodity, avg_price_this_tick);
         } else {
             // Set to same as last-tick's average if no trades occurred
+            history.buy_prices.add(commodity, history.buy_prices.average(commodity, 1));
             history.prices.add(commodity, history.prices.average(commodity, 1));
         }
     }

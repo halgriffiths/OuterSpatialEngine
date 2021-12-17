@@ -51,7 +51,7 @@ class AITrader : public Trader {
 private:
     friend Role;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
-    double MIN_PRICE = 0.01;
+    double MIN_PRICE = 0.10;
     bool initialised = false;
 
     std::optional<std::shared_ptr<Role>> logic;
@@ -324,7 +324,6 @@ void AITrader::GenerateOffers(const std::string& commodity) {
             int min_limit = (_inventory.Query(commodity) == 0) ? 1 : 0;
             logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
 
-            //double desperation = 2 - std::pow((0.2 * money / IDLE_TAX), 0.2*shortage);
             double desperation = 1;
             double days_savings = money / IDLE_TAX;
             desperation *= ( 5 /(days_savings*days_savings)) + 1;
@@ -351,9 +350,9 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 15% profit
     double fair_price = QueryCost(commodity) * 1.15;
-    double market_price = auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback);
+    double market_price = auction_house.lock()->AverageHistoricalBuyPrice(commodity, external_lookback);
     double ask_price;
-    if (fair_price < market_price) {
+    if (fair_price > market_price) {
         ask_price = fair_price;
     } else {
         std::uniform_real_distribution<> random_price(fair_price, market_price);
@@ -443,8 +442,9 @@ void Role::Produce(AITrader& trader, const std::string& commodity, int amount, d
     if (amount > 0 && Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
 
-        if (track_costs < (trader.QueryMoney() / 25)) track_costs = (trader.QueryMoney() / 50);
-        if (track_costs < min_cost) track_costs = min_cost;
+        //the richer you are, the greedier you get (the higher your minimum cost becomes)
+        track_costs = std::max(trader.QueryMoney() / 50, track_costs);
+        track_costs = std::max(min_cost, track_costs);
         trader.TryAddCommodity(commodity, amount, track_costs /  amount, false);
         track_costs = 0;
     }

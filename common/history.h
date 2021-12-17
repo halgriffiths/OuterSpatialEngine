@@ -87,18 +87,21 @@ public:
 class History{
 public:
     HistoryLog prices;
+    HistoryLog buy_prices;
     HistoryLog asks;
     HistoryLog bids;
     HistoryLog trades;
 
     History()
         : prices(HistoryLog(PRICE))
+        , buy_prices(HistoryLog(PRICE))
         , asks(HistoryLog(ASK))
         , bids(HistoryLog(BID))
         , trades(HistoryLog(TRADE)) {};
 
     void initialise(const std::string& name) {
         prices.initialise(name);
+        buy_prices.initialise(name);
         asks.initialise(name);
         bids.initialise(name);
         trades.initialise(name);
