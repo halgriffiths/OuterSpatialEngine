@@ -52,6 +52,8 @@ private:
     std::map<std::string, std::vector<std::pair<double, double>>> sample2_metrics;
 
     std::map<std::string, std::unique_ptr<std::ofstream>> data_files;
+
+    int lookback = 2;
 public:
     GlobalMetrics(std::vector<std::string> tracked_goods, std::vector<std::string> tracked_roles)
             : tracked_goods(tracked_goods)
@@ -104,10 +106,10 @@ public:
     void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
         for (auto& good : tracked_goods) {
 
-            double price = auction_house->AverageHistoricalPrice(good, 10);
-            double asks = auction_house->AverageHistoricalAsks(good, 10);
-            double bids = auction_house->AverageHistoricalBids(good, 10);
-            double trades = auction_house->AverageHistoricalTrades(good, 10);
+            double price = auction_house->AverageHistoricalPrice(good, lookback);
+            double asks = auction_house->AverageHistoricalAsks(good, lookback);
+            double bids = auction_house->AverageHistoricalBids(good, lookback);
+            double trades = auction_house->AverageHistoricalTrades(good, lookback);
 
             *(data_files[good].get()) << curr_tick << " " << price << "\n";
 
@@ -134,7 +136,7 @@ public:
         // Plot results
         Gnuplot gp;
         gp << "set multiplot layout 2,2\n";
-        gp << "set offsets 0, 0, 1, 0\n";
+        gp << "set offsets 0, 0, 0, 0\n";
         gp << "set title 'Prices'\n";
         auto plots = gp.plotGroup();
         for (auto& good : tracked_goods) {

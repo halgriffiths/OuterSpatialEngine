@@ -36,13 +36,14 @@ private:
 
 public:
     std::string required_good;
-    Role(std::string required = "none") : required_good(required){};
+    Role(std::string required = "none", double min_cost = 1) : required_good(required), min_cost(min_cost){};
     bool Random(double chance);
     virtual void TickRole(AITrader & trader) = 0;
     void Produce(AITrader & trader, const std::string& commodity, int amount, double chance = 1);
     void Consume(AITrader & trader, const std::string& commodity, int amount, double chance = 1);
     void LoseMoney(AITrader & trader, double amount);
     double track_costs = 0;
+    double min_cost; //minimum fair price for a single produced good
 };
 
 
@@ -350,7 +351,14 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 15% profit
     double fair_price = QueryCost(commodity) * 1.15;
-    double ask_price = fair_price;
+    double market_price = auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback);
+    double ask_price;
+    if (fair_price < market_price) {
+        ask_price = fair_price;
+    } else {
+        std::uniform_real_distribution<> random_price(fair_price, market_price);
+        ask_price = random_price(rng_gen);
+    }
     ask_price = std::max(MIN_PRICE, ask_price);
     int quantity = DetermineSaleQuantity(commodity);
     //can't sell less than limit
@@ -435,7 +443,8 @@ void Role::Produce(AITrader& trader, const std::string& commodity, int amount, d
     if (amount > 0 && Random(chance)) {
         trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
 
-        if (track_costs < 1) track_costs = 1;
+        if (track_costs < (trader.QueryMoney() / 25)) track_costs = (trader.QueryMoney() / 50);
+        if (track_costs < min_cost) track_costs = min_cost;
         trader.TryAddCommodity(commodity, amount, track_costs /  amount, false);
         track_costs = 0;
     }

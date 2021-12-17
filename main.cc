@@ -13,19 +13,21 @@ std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::map<std::string, std::vector<InventoryItem>>& inv,
                                     std::mt19937& gen) {
     double STARTING_MONEY = 50.0;
+    double MIN_COST = 1;
     std::uniform_real_distribution<> random_money(0.5*STARTING_MONEY, 1.5*STARTING_MONEY); // define the range
+    std::uniform_real_distribution<> random_cost(0.9*MIN_COST, 1.1*MIN_COST); // define the range
     if (class_name == "farmer") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleFarmer>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleFarmer>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
     } else if (class_name == "woodcutter") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleWoodcutter>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleWoodcutter>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
     } else if (class_name == "miner") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleMiner>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleMiner>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
     } else if (class_name == "refiner") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleRefiner>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleRefiner>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
     } else if (class_name == "blacksmith") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleBlacksmith>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleBlacksmith>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
     } else if (class_name == "composter") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleComposter>(), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleComposter>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], Log::WARN);
     } else {
         std::cout << "Error: Invalid class type passed to make_agent lambda" << std::endl;
     }
