@@ -78,14 +78,16 @@ struct BidResult {
     bool broker_fee_paid = false;
     int quantity_untraded = 0;
     int quantity_traded = 0;
-    double avg_price = 0;
+    double bought_price = 0;
+    double original_price = 0;
 
-    BidResult(int sender_id, std::string commodity)
+    BidResult(int sender_id, std::string commodity, double original_price)
             : sender_id(sender_id)
-            , commodity(std::move(commodity)) {};
+            , commodity(std::move(commodity))
+            , original_price(original_price) {};
 
     void UpdateWithTrade(int trade_quantity, double unit_price) {
-        avg_price = (avg_price*quantity_traded + unit_price*trade_quantity)/(trade_quantity + quantity_traded);
+        bought_price = (bought_price*quantity_traded + unit_price*trade_quantity)/(trade_quantity + quantity_traded);
         quantity_traded += trade_quantity;
     }
 
@@ -102,7 +104,7 @@ struct BidResult {
                     .append(" x")
                     .append(std::to_string(quantity_traded))
                     .append(" @ avg price $")
-                    .append(std::to_string(avg_price))
+                    .append(std::to_string(bought_price))
                     .append(" (")
                     .append(std::to_string(quantity_traded))
                     .append("/")
@@ -175,15 +177,17 @@ struct AskResult {
 };
 
 struct BidOffer {
+    std::uint64_t expiry_ns; //unix time in ns
     int sender_id;
     std::string commodity;
     int quantity;
     double unit_price;
-    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price)
+    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ns = 0)
             : sender_id(sender_id)
             , commodity(commodity_name)
             , quantity(quantity)
-            , unit_price(unit_price) {};
+            , unit_price(unit_price)
+            , expiry_ns(expiry_ns) {};
 
     std::string ToString() {
         std::string output("BID from ");
@@ -199,16 +203,18 @@ struct BidOffer {
 };
 
 struct AskOffer {
+    std::uint64_t expiry_ns; //unix time in ns
     int sender_id;
     std::string commodity;
     int quantity;
     double unit_price;
 
-    AskOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price)
+    AskOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ns = 0)
             : sender_id(sender_id)
             , commodity(commodity_name)
             , quantity(quantity)
-            , unit_price(unit_price) {};
+            , unit_price(unit_price)
+            , expiry_ns(expiry_ns) {};
 
     std::string ToString() {
         std::string output("ASK from ");
@@ -227,14 +233,14 @@ bool operator< (const BidOffer& a, const BidOffer& b) {
     return a.unit_price < b.unit_price;
 };
 bool operator< (const AskOffer& a, const AskOffer& b) {
-    return a.unit_price < b.unit_price;
+    return a.unit_price > b.unit_price;
 };
 
 bool operator< (const BidResult& a, const BidResult& b) {
-    return a.avg_price < b.avg_price;
+    return a.original_price < b.original_price;
 };
 bool operator< (const AskResult& a, const AskResult& b) {
-    return a.avg_price < b.avg_price;
+    return a.avg_price > b.avg_price;
 };
 
 struct ShutdownNotify {

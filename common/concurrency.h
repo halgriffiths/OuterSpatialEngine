@@ -9,6 +9,10 @@
 #include <queue>
 #include <mutex>
 
+std::int64_t to_unix_timestamp_ns(const std::chrono::system_clock::time_point& time) {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count();
+}
+
 template<typename T>
 class SafeQueue {
     std::queue<T> queue_;

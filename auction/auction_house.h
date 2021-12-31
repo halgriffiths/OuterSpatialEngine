@@ -102,7 +102,7 @@ public:
             logger.Log(Log::ERROR, "Malformed bid_offer message");
             return; //drop
         }
-        bid_book[bid->commodity].push_back({*bid, {id, bid->commodity} });
+        bid_book[bid->commodity].push_back({*bid, {id, bid->commodity, bid->unit_price} });
     }
     void ProcessAsk(Message& message) {
         auto ask = message.ask_offer;
@@ -227,14 +227,18 @@ private:
             // partially unfilled
             bid_result.UpdateWithNoTrade(bid.quantity);
         }
-        SendMessage(*Message(id).AddBidResult(std::move(bid_result)), bid.sender_id);
+        if (known_traders.find(bid.sender_id) != known_traders.end()) {
+            SendMessage(*Message(id).AddBidResult(std::move(bid_result)), bid.sender_id);
+        }
     }
     void CloseAsk(const AskOffer& ask, AskResult ask_result) {
         if (ask.quantity > 0) {
             // partially unfilled
             ask_result.UpdateWithNoTrade(ask.quantity);
         }
-        SendMessage(*Message(id).AddAskResult(std::move(ask_result)), ask.sender_id);
+        if (known_traders.find(ask.sender_id) != known_traders.end()) {
+            SendMessage(*Message(id).AddAskResult(std::move(ask_result)), ask.sender_id);
+        }
     }
 
     // 0 - success
@@ -294,15 +298,56 @@ private:
             return;
         }
     }
+
+    bool ValidateBid(BidOffer& curr_bid, BidResult& bid_result, std::int64_t resolve_time) {
+        if (known_traders.find(curr_bid.sender_id) == known_traders.end()) {
+            return false; //trader not found
+        }
+
+        if (curr_bid.expiry_ns == 0) {
+            curr_bid.expiry_ns = 1;
+            bid_result.broker_fee_paid = true; //dont need to pay broker fees for immediate offers
+        } else if (curr_bid.expiry_ns < resolve_time) {
+            return false; //expired bid
+        }
+
+        if (!bid_result.broker_fee_paid) {
+            TakeBrokerFee(curr_bid, bid_result);
+        }
+        return (bid_result.broker_fee_paid && CheckBidStake(curr_bid));
+    }
+
+    bool ValidateAsk(AskOffer& curr_ask, AskResult& ask_result, std::int64_t resolve_time) {
+        if (known_traders.find(curr_ask.sender_id) == known_traders.end()) {
+            return false; //trader not found
+        }
+        if (curr_ask.expiry_ns == 0) {
+            curr_ask.expiry_ns = 1;
+            ask_result.broker_fee_paid = true; //dont need to pay broker fees for immediate offers
+        } else if (curr_ask.expiry_ns < resolve_time) {
+            return false; //expired bid
+        }
+
+        if (!ask_result.broker_fee_paid) {
+            TakeBrokerFee(curr_ask, ask_result);
+        }
+        return (ask_result.broker_fee_paid && CheckAskStake(curr_ask));
+    }
+
     void ResolveOffers(const std::string& commodity) {
+        std::vector<std::pair<BidOffer, BidResult>> retained_bids = {};
+        std::vector<std::pair<AskOffer, AskResult>> retained_asks = {};
+
+        auto resolve_time = to_unix_timestamp_ns(std::chrono::system_clock::now());
+
         auto& bids = bid_book[commodity];
         auto& asks = ask_book[commodity];
-
-        std::shuffle(bids.begin(), bids.end(), rng_gen);
-        std::shuffle(bids.begin(), bids.end(), rng_gen);
+//
+//        std::shuffle(bids.begin(), bids.end(), rng_gen);
+//        std::shuffle(bids.begin(), bids.end(), rng_gen);
 
         std::sort(bids.rbegin(), bids.rend()); // NOTE: Reversed order
-        std::sort(asks.begin(), asks.end());   // lowest selling price first
+        std::sort(asks.rbegin(), asks.rend());   // lowest selling price first
 
         int num_trades_this_tick = 0;
         double money_traded_this_tick = 0;
@@ -313,7 +358,6 @@ private:
 
         double supply = 0;
         double demand = 0;
-
         for (const auto& bid : bids) {
             demand += bid.first.quantity;
         }
@@ -327,30 +371,20 @@ private:
             BidResult& bid_result = bids[0].second;
             AskResult& ask_result = asks[0].second;
 
-            if (!bid_result.broker_fee_paid) {
-                TakeBrokerFee(curr_bid, bid_result);
-            }
-            if (!ask_result.broker_fee_paid) {
-                TakeBrokerFee(curr_ask, ask_result);
-            }
-            if (!bid_result.broker_fee_paid || !CheckBidStake(curr_bid) || curr_ask.sender_id == curr_bid.sender_id) {
+            if (!ValidateBid(curr_bid, bid_result, resolve_time)) {
                 CloseBid(curr_bid, std::move(bid_result));
                 bids.erase(bids.begin());
-                bid_result = BidResult(id, commodity);
                 continue;
             }
-            if (!ask_result.broker_fee_paid || !CheckAskStake(curr_ask)) {
+
+            if (!ValidateAsk(curr_ask, ask_result, resolve_time)) {
                 CloseAsk(curr_ask, std::move(ask_result));
                 asks.erase(asks.begin());
-                ask_result = AskResult(id, commodity);
                 continue;
             }
 
             if (curr_ask.unit_price > curr_bid.unit_price) {
-                CloseBid(curr_bid, std::move(bid_result));
-                bids.erase(bids.begin());
-                bid_result = BidResult(id, commodity);
-                continue;
+                break;
             }
 
             int quantity_traded = std::min(curr_bid.quantity, curr_ask.quantity);
@@ -365,15 +399,12 @@ private:
                     //seller failed
                     CloseAsk(curr_ask, std::move(ask_result));
                     asks.erase(asks.begin());
-                    // Reset result
-                    ask_result = AskResult(id, commodity);
                     break;
                 }
                 if (res == 2) {
                     //buyer failed
                     CloseBid(curr_bid, std::move(bid_result));
                     bids.erase(bids.begin());
-                    bid_result = BidResult(id, commodity);
                     break;
                 }
                 // update the offers and results
@@ -404,20 +435,15 @@ private:
             }
         }
 
-        while (!bids.empty()) {
-            BidOffer& curr_bid = bids[0].first;
-            BidResult& bid_result = bids[0].second;
-
-            CloseBid(curr_bid, std::move(bid_result));
-            bids.erase(bids.begin());
+        for (auto bid : bids) {
+            //optionally could return a partial-result here
+            retained_bids.emplace_back(std::move(bid));
         }
-        while (!asks.empty()) {
-            AskOffer& curr_ask = asks[0].first;
-            AskResult& ask_result = asks[0].second;
-            CloseAsk(curr_ask, std::move(ask_result));
-            asks.erase(asks.begin());
+        for (auto ask : asks) {
+            retained_asks.emplace_back(std::move(ask));
         }
-
+        bid_book[commodity] = std::move(retained_bids);
+        ask_book[commodity] = std::move(retained_asks);
         // update history
         history.asks.add(commodity, supply);
         history.bids.add(commodity, demand);

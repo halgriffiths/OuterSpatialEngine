@@ -287,7 +287,7 @@ double AITrader::QueryCost(const std::string& name) { return _inventory.QueryCos
 // Trading functions
 void AITrader::UpdatePriceModelFromBid(BidResult& result) {
     for (int i = 0; i < result.quantity_traded; i++) {
-        _observedTradingRange[result.commodity].push_back(result.avg_price);
+        _observedTradingRange[result.commodity].push_back(result.bought_price);
     }
 
     while (_observedTradingRange[result.commodity].size() > internal_lookback) {
@@ -352,7 +352,7 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     double max_price = money;
     double min_price = MIN_PRICE;
     double bid_price = fair_bid_price *desperation;
-    bid_price = std::min(std::max(min_price, bid_price), max_price);
+    bid_price = std::max(std::min(max_price, bid_price), min_price);
 
     int ideal = DetermineBuyQuantity(commodity, bid_price);
     int quantity = std::max(std::min(ideal, max_limit), min_limit);

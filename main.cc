@@ -128,7 +128,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
 
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = (animation) ? 2000 : 2000;
+    int NUM_TICKS = (animation) ? 2000 : 500;
     int WINDOW_SIZE = 100;
     int STEP_SIZE = 1;
     int STEP_PAUSE_MS = 100;
