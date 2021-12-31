@@ -71,6 +71,7 @@ private:
     ConsoleLogger logger;
 
     double money;
+    double effective_money; //takes into account pending trades
 
 public:
     AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
@@ -78,6 +79,7 @@ public:
     , auction_house(std::move(auction_house_ptr))
     , logic(std::move(AI_logic))
     , money(starting_money)
+    , effective_money(starting_money)
     , logger(ConsoleLogger(class_name+std::to_string(id), log_level)) {
         //construct inv
         auction_house_id = auction_house.lock()->id;
@@ -184,6 +186,8 @@ void AITrader::ProcessAskResult(Message& message) {
     UpdatePriceModelFromAsk(*message.ask_result);
 }
 void AITrader::ProcessBidResult(Message& message) {
+    effective_money += message.bid_result->original_price * message.bid_result->quantity_untraded;
+    effective_money -= message.bid_result->bought_price * message.bid_result->quantity_traded;
     UpdatePriceModelFromBid(*message.bid_result);
 }
 void AITrader::ProcessRegistrationResponse(Message& message) {
@@ -341,6 +345,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
             desperation *= 1 - (0.4*(fulfillment - 0.5))/(1 + 0.4*std::abs(fulfillment-0.5));
             auto offer = CreateBid(commodity, min_limit, max_limit, desperation);
             if (offer.quantity > 0) {
+                effective_money -= offer.unit_price*offer.quantity;
                 SendMessage(*Message(id).AddBidOffer(offer), auction_house_id);
             }
         }
@@ -349,7 +354,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
 BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation) {
     double fair_bid_price = (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
     //scale between price based on need
-    double max_price = money;
+    double max_price = effective_money;
     double min_price = MIN_PRICE;
     double bid_price = fair_bid_price *desperation;
     bid_price = std::max(std::min(max_price, bid_price), min_price);
