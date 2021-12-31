@@ -230,6 +230,12 @@ bool operator< (const AskOffer& a, const AskOffer& b) {
     return a.unit_price < b.unit_price;
 };
 
+bool operator< (const BidResult& a, const BidResult& b) {
+    return a.avg_price < b.avg_price;
+};
+bool operator< (const AskResult& a, const AskResult& b) {
+    return a.avg_price < b.avg_price;
+};
 
 struct ShutdownNotify {
     int sender_id;

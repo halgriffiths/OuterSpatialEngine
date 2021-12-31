@@ -31,8 +31,8 @@ private:
     std::map<std::string, Commodity> known_commodities;
     std::map<int, std::shared_ptr<Trader>> known_traders;  //key = trader-id
 
-    std::map<std::string, std::vector<BidOffer>> bid_book = {};
-    std::map<std::string, std::vector<AskOffer>> ask_book = {};
+    std::map<std::string, std::vector<std::pair<BidOffer, BidResult>>> bid_book = {};
+    std::map<std::string, std::vector<std::pair<AskOffer, AskResult>>> ask_book = {};
     ConsoleLogger logger;
 
 public:
@@ -100,7 +100,7 @@ public:
             logger.Log(Log::ERROR, "Malformed bid_offer message");
             return; //drop
         }
-        bid_book[bid->commodity].push_back(*bid);
+        bid_book[bid->commodity].push_back({*bid, {id, bid->commodity} });
     }
     void ProcessAsk(Message& message) {
         auto ask = message.ask_offer;
@@ -108,7 +108,7 @@ public:
             logger.Log(Log::ERROR, "Malformed ask_offer message");
             return; //drop
         }
-        ask_book[ask->commodity].push_back(*ask);
+        ask_book[ask->commodity].push_back({*ask, {id, ask->commodity} });
     }
     void ProcessRegistrationRequest(Message& message) {
         auto request = message.register_request;
@@ -287,8 +287,8 @@ private:
         }
     }
     void ResolveOffers(const std::string& commodity) {
-        std::vector<BidOffer>& bids = bid_book[commodity];
-        std::vector<AskOffer>& asks = ask_book[commodity];
+        auto& bids = bid_book[commodity];
+        auto& asks = ask_book[commodity];
 
         std::shuffle(bids.begin(), bids.end(), rng_gen);
         std::shuffle(bids.begin(), bids.end(), rng_gen);
@@ -307,18 +307,17 @@ private:
         double demand = 0;
 
         for (const auto& bid : bids) {
-            demand += bid.quantity;
+            demand += bid.first.quantity;
         }
         for (const auto& ask : asks) {
-            supply += ask.quantity;
+            supply += ask.first.quantity;
         }
-
-        auto bid_result = BidResult(id, commodity);
-        auto ask_result = AskResult(id, commodity);
-
         while (!bids.empty() && !asks.empty()) {
-            BidOffer& curr_bid = bids[0];
-            AskOffer& curr_ask = asks[0];
+            BidOffer& curr_bid = bids[0].first;
+            AskOffer& curr_ask = asks[0].first;
+
+            BidResult& bid_result = bids[0].second;
+            AskResult& ask_result = asks[0].second;
 
             if (!bid_result.broker_fee_paid) {
                 TakeBrokerFee(curr_bid, bid_result);
@@ -389,29 +388,26 @@ private:
                 // Fulfilled buy order
                 CloseBid(curr_bid, std::move(bid_result));
                 bids.erase(bids.begin());
-                bid_result = BidResult(id, commodity);
             }
             if (curr_ask.quantity <= 0) {
                 // Fulfilled sell order
                 CloseAsk(curr_ask, std::move(ask_result));
                 asks.erase(asks.begin());
-                ask_result = AskResult(id, commodity);
             }
         }
 
         while (!bids.empty()) {
-            BidOffer& curr_bid = bids[0];
+            BidOffer& curr_bid = bids[0].first;
+            BidResult& bid_result = bids[0].second;
+
             CloseBid(curr_bid, std::move(bid_result));
             bids.erase(bids.begin());
-            // Reset result
-            bid_result = BidResult(id, commodity);
         }
         while (!asks.empty()) {
-            AskOffer& curr_ask = asks[0];
+            AskOffer& curr_ask = asks[0].first;
+            AskResult& ask_result = asks[0].second;
             CloseAsk(curr_ask, std::move(ask_result));
             asks.erase(asks.begin());
-            // Reset result
-            ask_result = AskResult(id, commodity);
         }
 
         // update history
