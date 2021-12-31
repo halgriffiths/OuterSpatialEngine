@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 ############# LIBRARY ############
 project(CppBazaarBot)
-add_library(bazaarbot BazaarBot.h traders/AI_trader.h common/agent.h common/messages.h auction/auction_house.h metrics/logger.h traders/inventory.h common/commodity.h common/history.h traders/roles.h traders/fake_trader.h metrics/display.h)
+add_library(bazaarbot BazaarBot.h traders/AI_trader.h common/agent.h common/messages.h auction/auction_house.h metrics/logger.h traders/inventory.h common/commodity.h common/history.h traders/roles.h traders/fake_trader.h metrics/display.h common/concurrency.h)
 set_target_properties(bazaarbot PROPERTIES LINKER_LANGUAGE CXX)
 
 ############# DRIVER ############

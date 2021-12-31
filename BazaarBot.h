@@ -2,6 +2,7 @@
 #define BAZAAR_BOT_H
 
 
+#include "common/concurrency.h"
 
 #include "common/commodity.h"
 #include "traders/inventory.h"

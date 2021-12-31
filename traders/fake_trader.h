@@ -103,21 +103,21 @@ void FakeTrader::Tick() {
 }
 
 void FakeTrader::FlushOutbox() {
-    while (!outbox.empty()) {
-        auto& outgoing = outbox.back();
+    auto outgoing = outbox.pop();
+    while (outgoing) {
         // Trader can currently only talk to auction houses (not other traders)
-        if (outgoing.first != auction_house_id) {
+        if (outgoing->first != auction_house_id) {
             continue;
         }
-        auction_house.lock()->ReceiveMessage(std::move(outgoing.second));
-        outbox.pop_back();
+        auction_house.lock()->ReceiveMessage(std::move(outgoing->second));
+        outgoing = outbox.pop();
     }
 }
 
 void FakeTrader::FlushInbox() {
-    while (!inbox.empty()) {
-        auto& incoming_message = inbox.back();
-        inbox.pop_back();
+    auto incoming_message = inbox.pop();
+    while (incoming_message) {
+        incoming_message = inbox.pop();
     }
 }
 

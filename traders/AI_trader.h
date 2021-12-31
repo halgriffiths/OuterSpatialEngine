@@ -49,6 +49,7 @@ public:
 
 class AITrader : public Trader {
 private:
+    int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
     friend Role;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
     double MIN_PRICE = 0.10;
@@ -136,36 +137,44 @@ public:
 
 void AITrader::FlushOutbox() {
         logger.Log(Log::DEBUG, "Flushing outbox");
-        while (!outbox.empty()) {
-            auto& outgoing = outbox.back();
+        auto outgoing = outbox.pop();
+        int num_processed = 0;
+        while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             // Trader can currently only talk to auction houses (not other traders)
-            if (outgoing.first != auction_house_id) {
-                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing.first));
+            if (outgoing->first != auction_house_id) {
+                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
                 continue;
             }
-            logger.LogSent(outgoing.first, Log::DEBUG, outgoing.second.ToString());
-            auction_house.lock()->ReceiveMessage(std::move(outgoing.second));
-            outbox.pop_back();
+            logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
+            auction_house.lock()->ReceiveMessage(std::move(outgoing->second));
+            outgoing = outbox.pop();
         }
-        logger.Log(Log::DEBUG, "Flush finished");
+    if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
+        logger.Log(Log::WARN, "Outbox not fully flushed");
+    }
+    logger.Log(Log::DEBUG, "Flush finished");
 }
 void AITrader::FlushInbox() {
     logger.Log(Log::DEBUG, "Flushing inbox");
-    while (!inbox.empty()) {
-        auto& incoming_message = inbox.back();
-        logger.LogReceived(incoming_message.sender_id, Log::INFO, incoming_message.ToString());
-        if (incoming_message.GetType() == Msg::EMPTY) {
+    auto incoming_message = inbox.pop();
+    int num_processed = 0;
+    while (incoming_message && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
+        logger.LogReceived(incoming_message->sender_id, Log::INFO, incoming_message->ToString());
+        if (incoming_message->GetType() == Msg::EMPTY) {
             //no-op
-        } else if (incoming_message.GetType() == Msg::BID_RESULT) {
-            ProcessBidResult(incoming_message);
-        } else if (incoming_message.GetType() == Msg::ASK_RESULT) {
-            ProcessAskResult(incoming_message);
-        } else if (incoming_message.GetType() == Msg::REGISTER_RESPONSE) {
-            ProcessRegistrationResponse(incoming_message);
+        } else if (incoming_message->GetType() == Msg::BID_RESULT) {
+            ProcessBidResult(*incoming_message);
+        } else if (incoming_message->GetType() == Msg::ASK_RESULT) {
+            ProcessAskResult(*incoming_message);
+        } else if (incoming_message->GetType() == Msg::REGISTER_RESPONSE) {
+            ProcessRegistrationResponse(*incoming_message);
         } else {
-            std::cout << "Unknown/unsupported message type " << incoming_message.GetType() << std::endl;
+            std::cout << "Unknown/unsupported message type " << incoming_message->GetType() << std::endl;
         }
-        inbox.pop_back();
+        incoming_message = inbox.pop();
+    }
+    if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
+        logger.Log(Log::WARN, "Inbox not fully flushed");
     }
     logger.Log(Log::DEBUG, "Flush finished");
 }

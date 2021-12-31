@@ -13,8 +13,8 @@ class AuctionHouse;
 // All an agent is is an entity with an id, capable of sending and receiving messages
 class Agent {
 protected:
-    std::vector<Message> inbox = {};
-    std::vector<std::pair<int, Message>> outbox = {}; //Message, recipient_id
+    SafeQueue<Message> inbox = {};
+    SafeQueue<std::pair<int, Message>> outbox = {}; //Message, recipient_id
 
 public:
     int id;
@@ -22,10 +22,10 @@ public:
     Agent(int agent_id) : id(agent_id) {};
 
     void ReceiveMessage(Message incoming_message) {
-        inbox.push_back(incoming_message);
+        inbox.push(incoming_message);
     }
     void SendMessage(Message& outgoing_message, int recipient) {
-        outbox.emplace_back(recipient,std::move(outgoing_message));
+        outbox.push({recipient,std::move(outgoing_message)});
     }
 
 
