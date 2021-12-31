@@ -15,6 +15,7 @@ enum LogType {
 };
 
 class HistoryLog {
+    int max_size = 6000; //10 min worth of data @ 100ms frametime
 public:
     LogType type;
     std::map<std::string, std::vector<double>> log;
@@ -35,6 +36,9 @@ public:
     void add(const std::string& name, double amount) {
         if (log.count(name) != 1) {
             return;// no entry found
+        }
+        if (log[name].size() == max_size) {
+            log[name].erase(log[name].begin());
         }
         log[name].push_back(amount);
     }
