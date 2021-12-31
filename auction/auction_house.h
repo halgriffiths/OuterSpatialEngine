@@ -55,10 +55,11 @@ public:
         while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             if (known_traders.find(outgoing->first) == known_traders.end()) {
                 logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
-                continue;
+            } else {
+                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
+                known_traders[outgoing->first]->ReceiveMessage(std::move(outgoing->second));
             }
-            logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
-            known_traders[outgoing->first]->ReceiveMessage(std::move(outgoing->second));
+            num_processed++;
             outgoing = outbox.pop();
         }
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
@@ -85,6 +86,7 @@ public:
             } else {
                 std::cout << "Unknown/unsupported message type " << incoming_message->GetType() << std::endl;
             }
+            num_processed++;
             incoming_message = inbox.pop();
         }
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
@@ -265,6 +267,9 @@ private:
     }
 
     void TakeBrokerFee(BidOffer& offer, BidResult& result) {
+        if (known_traders.find(offer.sender_id) == known_traders.end()) {
+            return; //trader not found
+        }
         double fee = offer.quantity*offer.unit_price*BROKER_FEE;
         auto res = known_traders[offer.sender_id]->TryTakeMoney(fee, true);
         if (res > 0) {
@@ -276,6 +281,9 @@ private:
         }
     }
     void TakeBrokerFee(AskOffer& offer, AskResult& result) {
+        if (known_traders.find(offer.sender_id) == known_traders.end()) {
+            return; //trader not found
+        }
         double fee = offer.quantity*offer.unit_price*BROKER_FEE;
         auto res = known_traders[offer.sender_id]->TryTakeMoney(fee, true);
         if (res > 0) {
@@ -331,7 +339,7 @@ private:
                 bid_result = BidResult(id, commodity);
                 continue;
             }
-            if (!ask_result.broker_fee_paid ||!CheckAskStake(curr_ask)) {
+            if (!ask_result.broker_fee_paid || !CheckAskStake(curr_ask)) {
                 CloseAsk(curr_ask, std::move(ask_result));
                 asks.erase(asks.begin());
                 ask_result = AskResult(id, commodity);

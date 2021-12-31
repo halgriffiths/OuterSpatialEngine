@@ -143,10 +143,11 @@ void AITrader::FlushOutbox() {
             // Trader can currently only talk to auction houses (not other traders)
             if (outgoing->first != auction_house_id) {
                 logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
-                continue;
+            } else {
+                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
+                auction_house.lock()->ReceiveMessage(std::move(outgoing->second));
             }
-            logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
-            auction_house.lock()->ReceiveMessage(std::move(outgoing->second));
+            num_processed++;
             outgoing = outbox.pop();
         }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
@@ -171,6 +172,7 @@ void AITrader::FlushInbox() {
         } else {
             std::cout << "Unknown/unsupported message type " << incoming_message->GetType() << std::endl;
         }
+        num_processed++;
         incoming_message = inbox.pop();
     }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
