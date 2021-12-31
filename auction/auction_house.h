@@ -358,11 +358,31 @@ private:
 
         double supply = 0;
         double demand = 0;
-        for (const auto& bid : bids) {
-            demand += bid.first.quantity;
+        {
+            auto it = bids.begin();
+            while (it != bids.end()) {
+                if (!ValidateBid(it->first, it->second, resolve_time)) {
+                    CloseBid(it->first, std::move(it->second));
+                    bids.erase(it);
+                }
+                else  {
+                    demand += it->first.quantity;
+                    ++it;
+                }
+            }
         }
-        for (const auto& ask : asks) {
-            supply += ask.first.quantity;
+        {
+            auto it = asks.begin();
+            while (it != asks.end()) {
+                if (!ValidateAsk(it->first, it->second, resolve_time)) {
+                    CloseAsk(it->first, std::move(it->second));
+                    asks.erase(it);
+                }
+                else  {
+                    supply += it->first.quantity;
+                    ++it;
+                }
+            }
         }
         while (!bids.empty() && !asks.empty()) {
             BidOffer& curr_bid = bids[0].first;
@@ -370,18 +390,6 @@ private:
 
             BidResult& bid_result = bids[0].second;
             AskResult& ask_result = asks[0].second;
-
-            if (!ValidateBid(curr_bid, bid_result, resolve_time)) {
-                CloseBid(curr_bid, std::move(bid_result));
-                bids.erase(bids.begin());
-                continue;
-            }
-
-            if (!ValidateAsk(curr_ask, ask_result, resolve_time)) {
-                CloseAsk(curr_ask, std::move(ask_result));
-                asks.erase(asks.begin());
-                continue;
-            }
 
             if (curr_ask.unit_price > curr_bid.unit_price) {
                 break;
