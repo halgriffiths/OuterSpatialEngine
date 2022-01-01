@@ -6,6 +6,7 @@
 #define CPPBAZAARBOT_HISTORY_H
 #include <map>
 #include <vector>
+#include <atomic>
 
 enum LogType {
     PRICE,
@@ -19,7 +20,7 @@ class HistoryLog {
 public:
     LogType type;
     std::map<std::string, std::vector<std::pair<double, std::int64_t>>> log;
-
+    std::map<std::string, std::atomic<double>> most_recent;
     HistoryLog(LogType log_type)
     : type(log_type) {
         log = {};
@@ -31,6 +32,7 @@ public:
         }
         double starting_value = 10;
         log[name].emplace_back(starting_value, to_unix_timestamp_ns(std::chrono::system_clock::now()));
+        most_recent[name] = starting_value;
     }
 
     void add(const std::string& name, double amount) {
@@ -41,9 +43,10 @@ public:
             log[name].erase(log[name].begin());
         }
         log[name].emplace_back(amount, to_unix_timestamp_ns(std::chrono::system_clock::now()));
+        most_recent[name] = amount;
     }
 
-    double average(const std::string& name, int range) {
+    double average(const std::string& name, int range) const {
         if (log.count(name) != 1) {
             return 0;// no entry found
         }
@@ -59,14 +62,14 @@ public:
         return total/range;
     }
     // time-based average
-    double t_average(const std::string& name, std::int64_t start_time) {
+    double t_average(const std::string& name, std::int64_t start_time) const {
         if (log.count(name) != 1) {
             return 0;// no entry found
         }
         double total = 0;
         int range = 0;
-        auto it = log[name].rbegin();
-        while (it != log[name].rend() && it->second >= start_time) {
+        auto it = log.at(name).rbegin();
+        while (it != log.at(name).rend() && it->second >= start_time) {
             total += it->first;
             range++;
             it++;
@@ -74,32 +77,45 @@ public:
         return total/range;
     }
 
-    double percentage_change(const std::string& name, int window) {
+    double percentage_change(const std::string& name, int window) const {
         double prev_value;
-        if (window <= log[name].size()) {
-            prev_value = log[name][log[name].size() - window].first;
+        if (window <= log.at(name).size()) {
+            prev_value = log.at(name)[log.at(name).size() - window].first;
         } else {
-            prev_value = log[name][0].first;
+            prev_value = log.at(name)[0].first;
         }
 
-        double curr_value = log[name].back().first;
+        double curr_value = log.at(name).back().first;
         return 100*(curr_value- prev_value)/prev_value;
     }
 
-    double t_percentage_change(const std::string& name, std::int64_t time) {
+    double t_percentage_change(const std::string& name, std::int64_t time) const {
         double prev_value;
-        auto it = log[name].rbegin();
-        while (it != log[name].rend() && it->second > time) {
+        auto it = log.at(name).rbegin();
+        while (it != log.at(name).rend() && it->second > time) {
             it++;
         }
-        if (it == log[name].rend()) {
-            prev_value = log[name].back().first;
+        if (it == log.at(name).rend()) {
+            prev_value = log.at(name).back().first;
         } else {
             prev_value = it->first;
         }
 
-        double curr_value = log[name].back().first;
+        double curr_value = log.at(name).back().first;
         return 100*(curr_value- prev_value)/prev_value;
+    }
+
+    std::vector<std::pair<double, double>> get_history(const std::string& name, std::int64_t start_time) {
+        std::vector<std::pair<double, double>> output = {};
+        if (log.count(name) != 1) {
+            return output;// no entry found
+        }
+        for (auto& item : log[name]) {
+            if (item.second >= start_time) {
+                output.emplace_back(item.second, item.first);
+            }
+        }
+        return output;
     }
 };
 

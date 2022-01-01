@@ -37,13 +37,14 @@ public:
     double avg_overall_age = 0;
     std::map<std::string, int> deaths_per_class;
     std::map<std::string, double> age_per_class;
+    std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics;
+
 private:
     std::map<std::string, std::tuple<std::string, std::string>> hardcoded_legend;
     int curr_tick = 0;
     int SAMPLE_ID = 0;
     int SAMPLE_ID2 = 1;
     std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
-    std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_trades_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_asks_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_bids_metrics;

@@ -181,19 +181,25 @@ public:
         known_traders.erase(message.sender_id);
     }
 
-    double AverageHistoricalBuyPrice(const std::string& commodity, int window) {
+    double AverageHistoricalBuyPrice(const std::string& commodity, int window) const {
         return history.buy_prices.average(commodity, window);
     }
-    double AverageHistoricalPrice(const std::string& commodity, int window) {
+    double AverageHistoricalPrice(const std::string& commodity, int window) const {
         return history.prices.average(commodity, window);
     }
-    double AverageHistoricalTrades(const std::string& commodity, int window) {
+    double MostRecentBuyPrice(const std::string& commodity) const {
+        return history.buy_prices.most_recent.at(commodity);
+    }
+    double MostRecentPrice(const std::string& commodity) const {
+        return history.prices.most_recent.at(commodity);
+    }
+    double AverageHistoricalTrades(const std::string& commodity, int window) const {
         return history.trades.average(commodity, window);
     }
-    double AverageHistoricalAsks(const std::string& commodity, int window) {
+    double AverageHistoricalAsks(const std::string& commodity, int window) const {
         return history.asks.average(commodity, window);
     }
-    double AverageHistoricalBids(const std::string& commodity, int window) {
+    double AverageHistoricalBids(const std::string& commodity, int window) const {
         return history.bids.average(commodity, window);
     }
     int NumKnownTraders() {

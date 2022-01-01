@@ -49,6 +49,7 @@ public:
 
 class AITrader : public Trader {
 private:
+    int TICK_TIME_MS = 100;
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
     friend Role;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
@@ -356,6 +357,9 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
 
     int ideal = DetermineBuyQuantity(commodity, bid_price);
     int quantity = std::max(std::min(ideal, max_limit), min_limit);
+
+    //set to expire just before next tick
+
     return BidOffer(id, commodity, quantity, bid_price);
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
