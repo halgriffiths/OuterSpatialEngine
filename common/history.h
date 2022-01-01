@@ -18,7 +18,7 @@ class HistoryLog {
     int max_size = 6000; //10 min worth of data @ 100ms frametime
 public:
     LogType type;
-    std::map<std::string, std::vector<double>> log;
+    std::map<std::string, std::vector<std::pair<double, std::int64_t>>> log;
 
     HistoryLog(LogType log_type)
     : type(log_type) {
@@ -30,7 +30,7 @@ public:
             return;// already registered
         }
         double starting_value = 10;
-        log[name] = {starting_value};
+        log[name].emplace_back(starting_value, to_unix_timestamp_ns(std::chrono::system_clock::now()));
     }
 
     void add(const std::string& name, double amount) {
@@ -40,7 +40,7 @@ public:
         if (log[name].size() == max_size) {
             log[name].erase(log[name].begin());
         }
-        log[name].push_back(amount);
+        log[name].emplace_back(amount, to_unix_timestamp_ns(std::chrono::system_clock::now()));
     }
 
     double average(const std::string& name, int range) {
@@ -54,38 +54,53 @@ public:
 
         double total = 0;
         for (int i = log_length - range; i < log_length; i++) {
-            total += log[name][i];
+            total += log[name][i].first;
         }
         return total/range;
     }
-
-    double variance(const std::string& name, int window) {
-        double sum = 0;
-        for (int i = log[name].size() - window; i < log[name].size(); i++) {
-            sum += log[name][i];
+    // time-based average
+    double t_average(const std::string& name, std::int64_t start_time) {
+        if (log.count(name) != 1) {
+            return 0;// no entry found
         }
-        double m =  sum / log[name].size();
-
-        double accum = 0.0;
-        for (int i = log[name].size() - window; i < log[name].size(); i++) {
-            accum += (log[name][i] - m) * (log[name][i] - m);
+        double total = 0;
+        int range = 0;
+        auto it = log[name].rbegin();
+        while (it != log[name].rend() && it->second >= start_time) {
+            total += it->first;
+            range++;
+            it++;
         }
-
-        return sqrt(accum / (log[name].size()-1));
+        return total/range;
     }
 
     double percentage_change(const std::string& name, int window) {
         double prev_value;
         if (window <= log[name].size()) {
-            prev_value = log[name][log[name].size() - window];
+            prev_value = log[name][log[name].size() - window].first;
         } else {
-            prev_value = log[name][0];
+            prev_value = log[name][0].first;
         }
 
-        double curr_value = log[name].back();
+        double curr_value = log[name].back().first;
         return 100*(curr_value- prev_value)/prev_value;
     }
 
+    double t_percentage_change(const std::string& name, std::int64_t time) {
+        double prev_value;
+        auto it = log[name].rbegin();
+        while (it != log[name].rend() && it->second > time) {
+            it++;
+        }
+        if (it == log[name].rend()) {
+            prev_value = log[name].back().first;
+        } else {
+            prev_value = it->first;
+        }
+
+        double curr_value = log[name].back().first;
+        return 100*(curr_value- prev_value)/prev_value;
+    }
 };
 
 class History{

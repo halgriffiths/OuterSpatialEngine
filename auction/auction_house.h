@@ -152,9 +152,6 @@ public:
         known_traders.erase(message.sender_id);
     }
 
-    double StdDev(const std::string& commodity, int window) {
-        return history.prices.variance(commodity, window);
-    }
     double AverageHistoricalBuyPrice(const std::string& commodity, int window) {
         return history.buy_prices.average(commodity, window);
     }
