@@ -18,11 +18,20 @@
 
 #include "../metrics/logger.h"
 
+#include <thread>
+
 class AuctionHouse : public Agent {
 public:
     History history;
 
 private:
+    std::atomic<bool> queue_active = true;
+    std::thread message_thread;
+
+    std::mutex bid_book_mutex;
+    std::mutex ask_book_mutex;
+    std::mutex known_traders_mutex;
+
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 500;
     double SALES_TAX = 0.08;
     double BROKER_FEE = 0.03;
@@ -39,9 +48,26 @@ public:
     double spread_profit = 0;
     AuctionHouse(int auction_house_id, Log::LogLevel verbosity)
         : Agent(auction_house_id)
-        , logger(ConsoleLogger(std::string("AH")+std::to_string(id), verbosity)) {
+        , logger(ConsoleLogger(std::string("AH")+std::to_string(id), verbosity))
+        , message_thread([this] { MessageLoop(); }) { }
+
+    void MessageLoop() {
+        while (true) {
+            if (!queue_active) {
+                return;
+            }
+            FlushInbox();
+            FlushOutbox();
+            std::this_thread::sleep_for(std::chrono::milliseconds{5});
+        }
     }
 
+    void ShutdownMessageThread() {
+        logger.Log(Log::INFO, "Shutting down message thread...");
+        queue_active = false;
+        message_thread.join();
+        logger.Log(Log::INFO, "Message thread shutdown");
+    }
 
     void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
         logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
@@ -54,7 +80,7 @@ public:
         int num_processed = 0;
         while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             if (known_traders.find(outgoing->first) == known_traders.end()) {
-                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
+                logger.Log(Log::DEBUG, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
             } else {
                 logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
                 known_traders[outgoing->first]->ReceiveMessage(std::move(outgoing->second));
@@ -65,7 +91,7 @@ public:
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             logger.Log(Log::WARN, "Outbox not fully flushed");
         }
-        logger.Log(Log::DEBUG, "Flush finished");
+        logger.Log(Log::DEBUG, "Flush finished (sent " + std::to_string(num_processed)+")");
     }
     void FlushInbox() {
         logger.Log(Log::DEBUG, "Flushing inbox");
@@ -92,7 +118,7 @@ public:
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             logger.Log(Log::WARN, "Inbox not fully flushed");
         }
-        logger.Log(Log::DEBUG, "Flush finished");
+        logger.Log(Log::DEBUG, "Flush finished (received " + std::to_string(num_processed)+")");
     }
 
     // Message processing
@@ -102,7 +128,9 @@ public:
             logger.Log(Log::ERROR, "Malformed bid_offer message");
             return; //drop
         }
+        bid_book_mutex.lock();
         bid_book[bid->commodity].push_back({*bid, {id, bid->commodity, bid->unit_price} });
+        bid_book_mutex.unlock();
     }
     void ProcessAsk(Message& message) {
         auto ask = message.ask_offer;
@@ -110,7 +138,9 @@ public:
             logger.Log(Log::ERROR, "Malformed ask_offer message");
             return; //drop
         }
+        ask_book_mutex.lock();
         ask_book[ask->commodity].push_back({*ask, {id, ask->commodity} });
+        ask_book_mutex.unlock();
     }
     void ProcessRegistrationRequest(Message& message) {
         auto request = message.register_request;
@@ -118,7 +148,6 @@ public:
             logger.Log(Log::ERROR, "Malformed register_request message");
             return; //drop
         }
-
         // check no id clash
         auto requested_id = message.sender_id;
         if (requested_id == id) {
@@ -177,16 +206,20 @@ public:
         }
         history.initialise(new_commodity.name);
         known_commodities[new_commodity.name] = new_commodity;
+
+        bid_book_mutex.lock();
         bid_book[new_commodity.name] = {};
+        bid_book_mutex.unlock();
+
+        ask_book_mutex.lock();
         ask_book[new_commodity.name] = {};
+        ask_book_mutex.unlock();
     }
 
     void Tick() {
-        FlushInbox();
         for (const auto& item : known_commodities) {
             ResolveOffers(item.first);
         }
-        FlushOutbox();
         logger.Log(Log::INFO, "Net spread profit: " + std::to_string(spread_profit));
         ticks++;
     }
@@ -246,7 +279,7 @@ private:
         auto actual_quantity = known_traders[seller]->TryTakeCommodity(commodity, quantity, 0, true);
         if (actual_quantity == 0) {
             // this may be unrecoverable, not sure
-            logger.Log(Log::ERROR, "Seller lacks good! Aborting trade");
+            logger.Log(Log::WARN, "Seller lacks good! Aborting trade");
             return 1;
         }
         auto actual_money = known_traders[buyer]->TryTakeMoney(actual_quantity*clearing_price, true);
@@ -332,6 +365,9 @@ private:
     }
 
     void ResolveOffers(const std::string& commodity) {
+        bid_book_mutex.lock();
+        ask_book_mutex.lock();
+
         std::vector<std::pair<BidOffer, BidResult>> retained_bids = {};
         std::vector<std::pair<AskOffer, AskResult>> retained_asks = {};
 
@@ -462,6 +498,9 @@ private:
             history.buy_prices.add(commodity, history.buy_prices.average(commodity, 1));
             history.prices.add(commodity, history.prices.average(commodity, 1));
         }
+
+    bid_book_mutex.unlock();
+    ask_book_mutex.unlock();
     }
 
 };

@@ -97,6 +97,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
 
     std::map<std::string, int> num_alive;
     for (int curr_tick = start_tick; curr_tick < start_tick+steps; curr_tick++) {
+        auto t1 = std::chrono::high_resolution_clock::now();
         for (auto& role : tracked_roles) {
             num_alive[role] = 0;
         }
@@ -120,7 +121,16 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
 
         // collect metrics
         global_metrics.CollectMetrics(auction_house, all_traders, num_alive);
+        std::chrono::duration<double, std::milli> ms_double = std::chrono::high_resolution_clock::now() - t1;
+        int frametime_ms = ms_double.count();
+        std::cout << "Working frametime for tick " << curr_tick << ": " << frametime_ms << std::endl;
 
+        if (frametime_ms < 10) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{10 - frametime_ms});
+        }
+        ms_double = std::chrono::high_resolution_clock::now() - t1;
+        frametime_ms = ms_double.count();
+        std::cout << "  Final frametime for tick " << curr_tick << ": " << frametime_ms << std::endl;
     }
 
 }
@@ -134,12 +144,12 @@ void Run(bool animation) {
     int STEP_PAUSE_MS = 100;
     double target_FPS = 2;
 
-    int target_frametime;
+    int target_steptime;
     if (animation) {
-        target_frametime = 1000/target_FPS;
+        target_steptime = 1000/target_FPS;
 
     } else {
-        target_frametime = 0;
+        target_steptime = 0;
     }
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
@@ -224,7 +234,6 @@ void Run(bool animation) {
     std::cout << std::fixed;
     std::cout << std::setprecision(2);
     auto t1 = high_resolution_clock::now();
-    std::vector<double> frametimes;
     for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick += STEP_SIZE) {
         t1 = high_resolution_clock::now();
         AdvanceTicks(curr_tick, STEP_SIZE, max_id,
@@ -242,17 +251,16 @@ void Run(bool animation) {
         }
 
         duration<double, std::milli> ms_double = high_resolution_clock::now() - t1;
-        int frametime = ms_double.count();
-
-        if (animation && curr_tick > WINDOW_SIZE && frametime < target_frametime) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(target_frametime-frametime));
+        int steptime = ms_double.count();
+        std::cout << "steptime for tick " << curr_tick << ": " << steptime << "ms\n";
+        if (animation && curr_tick > WINDOW_SIZE && steptime < target_steptime) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(target_steptime-steptime));
         }
-        ms_double = high_resolution_clock::now() - t1;
-        frametime = ms_double.count();
+
         //std::cout << "TPS: " << frametime/STEP_SIZE << "ms";
         //std::cout << "   FPS: " << 1000/frametime << std::endl;
-        frametimes.emplace_back(frametime);
     }
+    auction_house->ShutdownMessageThread();
 
     //Plot final results
     global_metrics.plot_verbose();
@@ -285,7 +293,7 @@ void Run(bool animation) {
         survivor_age += survivor->ticks;
     }
     std::cout << "Survivor avg age: " << survivor_age / all_traders.size() << std::endl;
-    std::cout << "auction house profit :" << auction_house->spread_profit;
+    std::cout << "Avg auction house profit :" << auction_house->spread_profit / NUM_TICKS;
 }
 
 // ---------------- MAIN ----------

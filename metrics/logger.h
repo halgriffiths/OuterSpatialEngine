@@ -38,7 +38,7 @@ namespace {
 // Base class makes no logs
 class Logger {
 public:
-    std::string name;
+    const std::string name;
 
     Logger(std::string owner_name = "none",Log::LogLevel verbosity = Log::ERROR)
     : name(std::move(owner_name))
