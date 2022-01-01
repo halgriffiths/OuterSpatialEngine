@@ -31,7 +31,7 @@ public:
             return;// already registered
         }
         double starting_value = 10;
-        log[name].emplace_back(starting_value, to_unix_timestamp_ns(std::chrono::system_clock::now()));
+        log[name].emplace_back(starting_value, to_unix_timestamp_ms(std::chrono::system_clock::now()));
         most_recent[name] = starting_value;
     }
 
@@ -42,7 +42,7 @@ public:
         if (log[name].size() == max_size) {
             log[name].erase(log[name].begin());
         }
-        log[name].emplace_back(amount, to_unix_timestamp_ns(std::chrono::system_clock::now()));
+        log[name].emplace_back(amount, to_unix_timestamp_ms(std::chrono::system_clock::now()));
         most_recent[name] = amount;
     }
 
@@ -50,14 +50,14 @@ public:
         if (log.count(name) != 1) {
             return 0;// no entry found
         }
-        int log_length = log[name].size();
+        int log_length = log.at(name).size();
         if (log_length < range) {
             range = log_length;
         }
 
         double total = 0;
         for (int i = log_length - range; i < log_length; i++) {
-            total += log[name][i].first;
+            total += log.at(name)[i].first;
         }
         return total/range;
     }

@@ -202,7 +202,7 @@ public:
     double AverageHistoricalBids(const std::string& commodity, int window) const {
         return history.bids.average(commodity, window);
     }
-    int NumKnownTraders() {
+    int NumKnownTraders() const {
         return (int) known_traders.size();
     }
     void RegisterCommodity(const Commodity& new_commodity) {
@@ -377,7 +377,7 @@ private:
         std::vector<std::pair<BidOffer, BidResult>> retained_bids = {};
         std::vector<std::pair<AskOffer, AskResult>> retained_asks = {};
 
-        auto resolve_time = to_unix_timestamp_ns(std::chrono::system_clock::now());
+        auto resolve_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
 
         auto& bids = bid_book[commodity];
         auto& asks = ask_book[commodity];
