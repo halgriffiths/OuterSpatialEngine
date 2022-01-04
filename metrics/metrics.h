@@ -42,6 +42,7 @@ public:
 private:
     std::map<std::string, std::tuple<std::string, std::string>> hardcoded_legend;
     int curr_tick = 0;
+    std::uint64_t start_time;
     int SAMPLE_ID = 0;
     int SAMPLE_ID2 = 1;
     std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
@@ -61,7 +62,7 @@ public:
             , tracked_roles(tracked_roles) {
 
         init_datafiles();
-
+        start_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
         sample1_metrics["money"] = {};
         sample2_metrics["money"] = {};
 
@@ -105,8 +106,9 @@ public:
         }
     }
     void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
+        auto curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
+        double time_passed_ms = (curr_time - start_time);
         for (auto& good : tracked_goods) {
-
             double price = auction_house->AverageHistoricalPrice(good, lookback);
             double asks = auction_house->AverageHistoricalAsks(good, lookback);
             double bids = auction_house->AverageHistoricalBids(good, lookback);
@@ -114,22 +116,22 @@ public:
 
             *(data_files[good].get()) << curr_tick << " " << price << "\n";
 
-            avg_price_metrics[good].emplace_back(curr_tick, price);
-            avg_trades_metrics[good].emplace_back(curr_tick, trades);
-            avg_asks_metrics[good].emplace_back(curr_tick, asks);
-            avg_bids_metrics[good].emplace_back(curr_tick, bids);
+            avg_price_metrics[good].emplace_back(time_passed_ms, price);
+            avg_trades_metrics[good].emplace_back(time_passed_ms, trades);
+            avg_asks_metrics[good].emplace_back(time_passed_ms, asks);
+            avg_bids_metrics[good].emplace_back(time_passed_ms, bids);
 
-            net_supply_metrics[good].emplace_back(curr_tick, asks-bids);
+            net_supply_metrics[good].emplace_back(time_passed_ms, asks-bids);
 
-            sample1_metrics[good].emplace_back(curr_tick, all_traders[SAMPLE_ID]->Query(good));
-            sample2_metrics[good].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->Query(good));
+            sample1_metrics[good].emplace_back(time_passed_ms, all_traders[SAMPLE_ID]->Query(good));
+            sample2_metrics[good].emplace_back(time_passed_ms, all_traders[SAMPLE_ID2]->Query(good));
         }
         for (auto& role : tracked_roles) {
-            num_alive_metrics[role].emplace_back(curr_tick, num_alive[role]);
+            num_alive_metrics[role].emplace_back(time_passed_ms, num_alive[role]);
         }
 
-        sample1_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID]->QueryMoney());
-        sample2_metrics["money"].emplace_back(curr_tick, all_traders[SAMPLE_ID2]->QueryMoney());
+        sample1_metrics["money"].emplace_back(time_passed_ms, all_traders[SAMPLE_ID]->QueryMoney());
+        sample2_metrics["money"].emplace_back(time_passed_ms, all_traders[SAMPLE_ID2]->QueryMoney());
 
         curr_tick++;
     }
