@@ -158,7 +158,14 @@ void AITrader::FlushOutbox() {
                 //logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first), unique_name);
             } else {
                 //logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString(), unique_name);
-                auction_house.lock()->ReceiveMessage(std::move(outgoing->second));
+                auto res = auction_house.lock();
+                if (res) {
+                    res->ReceiveMessage(std::move(outgoing->second));
+                } else {
+                    queue_active = false;
+                    pending_shutdown = true;
+                    return;
+                }
             }
             num_processed++;
             outgoing = outbox.pop();
@@ -360,7 +367,16 @@ void AITrader::GenerateOffers(const std::string& commodity) {
     }
 }
 BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int max_limit, double desperation) {
-    double fair_bid_price = (auction_house.lock()->AverageHistoricalPrice(commodity, external_lookback));
+    double fair_bid_price;
+    auto res = auction_house.lock();
+    if (res) {
+        fair_bid_price = res->AverageHistoricalPrice(commodity, external_lookback);
+    } else {
+        pending_shutdown = true;
+        // quantity 0 BidOffers are never sent
+        // (Yes this is hacky)
+        return BidOffer(id, commodity, 0, -1, 0);
+    }
     //scale between price based on need
     double max_price = money;
     double min_price = MIN_PRICE;
@@ -376,9 +392,19 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 15% profit
-    double fair_price = QueryCost(commodity) * 1.15;
-    double market_price = auction_house.lock()->AverageHistoricalBuyPrice(commodity, external_lookback);
+    double market_price;
     double ask_price;
+    auto res = auction_house.lock();
+    if (res) {
+        market_price = res->AverageHistoricalBuyPrice(commodity, external_lookback);
+    } else {
+        pending_shutdown = true;
+        // quantity 0 AskOffers are never sent
+        // (Yes this is hacky)
+        return AskOffer(id, commodity, 0, -1, 0);
+    }
+    double fair_price = QueryCost(commodity) * 1.15;
+
     std::uniform_real_distribution<> random_price(fair_price, market_price);
     ask_price = random_price(rng_gen);
     ask_price = std::max(MIN_PRICE, ask_price);
