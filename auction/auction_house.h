@@ -62,7 +62,7 @@ public:
             }
             FlushInbox();
             FlushOutbox();
-            std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
+            std::this_thread::sleep_for(std::chrono::milliseconds{1});
         }
     }
 
@@ -255,7 +255,7 @@ public:
             ticks++;
             std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
             if (to_unix_timestamp_ms(std::chrono::system_clock::now()) > expiry_ms) {
-                logger.Log(Log::INFO, "Shutting down (expiry time reached)", unique_name);
+                logger.Log(Log::ERROR, "Shutting down (expiry time reached)", unique_name);
                 Shutdown();
             }
         }

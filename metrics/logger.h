@@ -28,7 +28,7 @@ public:
     virtual void LogSent(int to,Log::LogLevel level, std::string message, std::string& name) const {return;};
     virtual void LogReceived(int from,Log::LogLevel level, std::string message, std::string& name) const {return;};
     virtual void Log(Log::LogLevel level, std::string message, std::string& name) const {return;};
-    std::atomic<Log::LogLevel> verbosity;
+    Log::LogLevel verbosity;
 
 protected:
     const char* LogLevelToCString(Log::LogLevel level) const {
@@ -71,7 +71,7 @@ public:
             return;
         }
         char header_string[100]; //yolo lmao
-        snprintf(header_string, 100, "[%s][Received] %s <<< %d - ",LogLevelToCString(level), name.c_str(), from);
+        snprintf(header_string, 100, "[%s][Received] %s <<< %d - ", LogLevelToCString(level), name.c_str(), from);
         LogInternal(std::string(header_string) + message);
     }
 
@@ -79,7 +79,7 @@ public:
         if (level > verbosity) {
             return;
         }
-        char header_string[30]; //yolo lmao
+        char header_string[100]; //yolo lmao
         snprintf(header_string, 30, "[%s] %s: ",LogLevelToCString(level), name.c_str());
         LogInternal(std::string(header_string) + message);
     }

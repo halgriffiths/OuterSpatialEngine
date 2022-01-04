@@ -49,6 +49,11 @@ public:
 
 class AITrader : public Trader {
 private:
+    std::atomic<bool> queue_active = true;
+    std::thread message_thread;
+
+    std::string unique_name;
+    
     int TICK_TIME_MS = 10;
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
     friend Role;
@@ -74,13 +79,14 @@ private:
     double money;
 
 public:
-    AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel log_level = Log::WARN)
+    AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel verbosity = Log::WARN)
     : Trader(id, class_name)
     , auction_house(std::move(auction_house_ptr))
     , logic(std::move(AI_logic))
     , money(starting_money)
     , unique_name(class_name + std::to_string(id))
-    , logger(ConsoleLogger(log_level)) {
+    , logger(ConsoleLogger(verbosity))
+    , message_thread([this] { MessageLoop(); }){
         //construct inv
         auction_house_id = auction_house.lock()->id;
         _inventory = Inventory(inv_capacity, starting_inv);
@@ -113,10 +119,13 @@ private:
 
     std::pair<double, double> ObserveTradingRange(const std::string& commodity, int window);
 
-    void Destroy();
+    void ShutdownMessageThread();
 public:
+    void Shutdown();
     void Tick();
     void TickOnce();
+    void MessageLoop();
+
     // EXTERNAL QUERIES
     bool HasMoney(double quantity) override;
     bool HasCommodity(const std::string& commodity, int quantity) override;
@@ -195,7 +204,7 @@ void AITrader::ProcessRegistrationResponse(Message& message) {
         logger.Log(Log::INFO, "Successfully registered with auction house", unique_name);
     } else {
         logger.Log(Log::ERROR, "Failed to register with auction house", unique_name);
-        Destroy();
+        Shutdown();
     }
 }
 
@@ -414,20 +423,29 @@ std::pair<double, double> AITrader::ObserveTradingRange(const std::string& commo
 }
 
 // Misc
-void AITrader::Destroy() {
+void AITrader::ShutdownMessageThread() {
+    logger.Log(Log::INFO, "Shutting down message thread...", unique_name);
+    queue_active = false;
+    if (message_thread.joinable()) {
+        message_thread.join();
+    }
+    logger.Log(Log::INFO, "Message thread shutdown", unique_name);
+}
+
+void AITrader::Shutdown() {
     auto res = auction_house.lock();
     if (res) {
         res->ReceiveMessage(*Message(id).AddShutdownNotify({id}));
     }
-    destroyed = true;
+    ShutdownMessageThread();
     logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."), unique_name);
     _inventory.inventory.clear();
     auction_house.reset();
+    destroyed = true;
 }
 
 void AITrader::Tick() {
     while (!destroyed) {
-        FlushInbox();
         if (initialised) {
             if (logic) {
                 logger.Log(Log::DEBUG, "Ticking internal logic", unique_name);
@@ -438,9 +456,8 @@ void AITrader::Tick() {
             }
         }
         if (money <= 0) {
-            Destroy();
+            Shutdown();
         }
-        FlushOutbox();
         if (initialised) {
             ticks++;
         }
@@ -451,7 +468,6 @@ void AITrader::TickOnce() {
     if (destroyed) {
         return;
     }
-    FlushInbox();
     if (initialised) {
         if (logic) {
             logger.Log(Log::DEBUG, "Ticking internal logic", unique_name);
@@ -462,16 +478,24 @@ void AITrader::TickOnce() {
         }
     }
     if (money <= 0) {
-        Destroy();
+        Shutdown();
         return;
     }
-    FlushOutbox();
     if (initialised){
         ticks++;
     }
 }
 
-
+void AITrader::MessageLoop() {
+    while (true) {
+        if (!queue_active) {
+            return;
+        }
+        FlushInbox();
+        FlushOutbox();
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+}
 
 bool Role::Random(double chance) {
     if (chance >= 1) return true;
