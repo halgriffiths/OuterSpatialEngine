@@ -79,6 +79,8 @@ private:
     double money;
 
 public:
+    std::atomic<bool> pending_shutdown = false;
+
     AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel verbosity = Log::WARN)
     : Trader(id, class_name)
     , auction_house(std::move(auction_house_ptr))
@@ -135,7 +137,6 @@ public:
     double QueryCost(const std::string& name);
 
     double GetIdleTax() { return IDLE_TAX;};
-    bool IsDestroyed() {return destroyed;};
     double QueryMoney() { return money;};
 
     // EXTERNAL SETTERS (i.e. for auction house & role only)
@@ -148,27 +149,27 @@ public:
 };
 
 void AITrader::FlushOutbox() {
-        logger.Log(Log::DEBUG, "Flushing outbox", unique_name);
+        //logger.Log(Log::DEBUG, "Flushing outbox", unique_name);
         auto outgoing = outbox.pop();
         int num_processed = 0;
         while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             // Trader can currently only talk to auction houses (not other traders)
             if (outgoing->first != auction_house_id) {
-                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first), unique_name);
+                //logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first), unique_name);
             } else {
-                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString(), unique_name);
+                //logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString(), unique_name);
                 auction_house.lock()->ReceiveMessage(std::move(outgoing->second));
             }
             num_processed++;
             outgoing = outbox.pop();
         }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        logger.Log(Log::WARN, "Outbox not fully flushed", unique_name);
+        //logger.Log(Log::WARN, "Outbox not fully flushed", unique_name);
     }
-    logger.Log(Log::DEBUG, "Flush finished", unique_name);
+    //logger.Log(Log::DEBUG, "Flush finished", unique_name);
 }
 void AITrader::FlushInbox() {
-    logger.Log(Log::DEBUG, "Flushing inbox", unique_name);
+    //logger.Log(Log::DEBUG, "Flushing inbox", unique_name);
     auto incoming_message = inbox.pop();
     int num_processed = 0;
     while (incoming_message && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
@@ -188,9 +189,9 @@ void AITrader::FlushInbox() {
         incoming_message = inbox.pop();
     }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        logger.Log(Log::WARN, "Inbox not fully flushed", unique_name);
+        //logger.Log(Log::WARN, "Inbox not fully flushed", unique_name);
     }
-    logger.Log(Log::DEBUG, "Flush finished", unique_name);
+    //logger.Log(Log::DEBUG, "Flush finished", unique_name);
 }
 void AITrader::ProcessAskResult(Message& message) {
     UpdatePriceModelFromAsk(*message.ask_result);
@@ -445,7 +446,7 @@ void AITrader::Shutdown() {
 }
 
 void AITrader::Tick() {
-    while (!destroyed) {
+    while (!pending_shutdown) {
         if (initialised) {
             if (logic) {
                 logger.Log(Log::DEBUG, "Ticking internal logic", unique_name);
@@ -456,7 +457,7 @@ void AITrader::Tick() {
             }
         }
         if (money <= 0) {
-            Shutdown();
+            pending_shutdown = true;
         }
         if (initialised) {
             ticks++;
@@ -465,7 +466,7 @@ void AITrader::Tick() {
 }
 
 void AITrader::TickOnce() {
-    if (destroyed) {
+    if (destroyed || pending_shutdown) {
         return;
     }
     if (initialised) {
@@ -478,7 +479,7 @@ void AITrader::TickOnce() {
         }
     }
     if (money <= 0) {
-        Shutdown();
+        pending_shutdown = true;
         return;
     }
     if (initialised){

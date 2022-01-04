@@ -105,10 +105,11 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
         fake_trader->Tick();
         //all_traders[0]->logger.verbosity = Log::INFO;
         for (int i = 0; i < all_traders.size(); i++) {
-            if (!all_traders[i]->IsDestroyed()) {
+            if (!all_traders[i]->pending_shutdown) {
                 all_traders[i]->TickOnce();
                 num_alive[all_traders[i]->GetClassName()] += 1;
             } else {
+                all_traders[i]->Shutdown();
                 //trader died, add new trader?
                 global_metrics.TrackDeath(all_traders[i]->GetClassName(), all_traders[i]->ticks);
                 //auto new_job = ChooseNewClassRandom(tracked_roles, gen);
