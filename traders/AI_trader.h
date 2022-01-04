@@ -67,7 +67,7 @@ private:
     int  external_lookback = 50; //history range (num ticks)
     int internal_lookback = 50; //history range (num trades)
 
-    bool destroyed = false;
+    std::atomic<bool> destroyed = false;
     double IDLE_TAX = 20;
     ConsoleLogger logger;
 
@@ -115,6 +115,7 @@ private:
     void Destroy();
 public:
     void Tick();
+    void TickOnce();
     // EXTERNAL QUERIES
     bool HasMoney(double quantity) override;
     bool HasCommodity(const std::string& commodity, int quantity) override;
@@ -422,7 +423,30 @@ void AITrader::Destroy() {
     _inventory.inventory.clear();
     auction_house.reset();
 }
+
 void AITrader::Tick() {
+    while (!destroyed) {
+        FlushInbox();
+        if (initialised) {
+            if (logic) {
+                logger.Log(Log::DEBUG, "Ticking internal logic");
+                (*logic)->TickRole(*this);
+            }
+            for (const auto &commodity : _inventory.inventory) {
+                GenerateOffers(commodity.first);
+            }
+        }
+        if (money <= 0) {
+            Destroy();
+        }
+        FlushOutbox();
+        if (initialised) {
+            ticks++;
+        }
+    }
+}
+
+void AITrader::TickOnce() {
     if (destroyed) {
         return;
     }

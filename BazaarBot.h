@@ -29,7 +29,7 @@ std::shared_ptr<AITrader> CreateAndRegisterBasic(int id,
     auto trader = std::make_shared<AITrader>(id, auction_house, std::nullopt, "test_class", 100.0, 50, inv_vector, Log::WARN);
 
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
-    trader->Tick();
+    trader->TickOnce();
     return trader;
 }
 std::shared_ptr<AITrader> CreateAndRegister(int id,
@@ -44,7 +44,7 @@ std::shared_ptr<AITrader> CreateAndRegister(int id,
 
     auto trader = std::make_shared<AITrader>(id, auction_house, std::move(AI_logic), name, starting_money, inv_capacity, inv, log_level);
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
-    trader->Tick();
+    trader->TickOnce();
     return trader;
 }
 std::shared_ptr<AITrader> CreateAndRegisterFarmer(int id,

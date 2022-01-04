@@ -105,7 +105,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
         //all_traders[0]->logger.verbosity = Log::INFO;
         for (int i = 0; i < all_traders.size(); i++) {
             if (!all_traders[i]->IsDestroyed()) {
-                all_traders[i]->Tick();
+                all_traders[i]->TickOnce();
                 num_alive[all_traders[i]->GetClassName()] += 1;
             } else {
                 //trader died, add new trader?
