@@ -182,22 +182,34 @@ public:
         known_traders.erase(message.sender_id);
     }
 
-    double AverageHistoricalBuyPrice(const std::string& commodity, int window) const {
-        return history.buy_prices.average(commodity, window);
-    }
-    double AverageHistoricalPrice(const std::string& commodity, int window) const {
-        return history.prices.average(commodity, window);
-    }
     double MostRecentBuyPrice(const std::string& commodity) const {
         return history.buy_prices.most_recent.at(commodity);
     }
     double MostRecentPrice(const std::string& commodity) const {
         return history.prices.most_recent.at(commodity);
     }
+    double AverageHistoricalBuyPrice(const std::string& commodity, int window) const {
+        if (window == 1) {
+            return history.buy_prices.most_recent.at(commodity);
+        }
+        return history.buy_prices.average(commodity, window);
+    }
+    double AverageHistoricalPrice(const std::string& commodity, int window) const {
+        if (window == 1) {
+            return history.prices.most_recent.at(commodity);
+        }
+        return history.prices.average(commodity, window);
+    }
     double AverageHistoricalTrades(const std::string& commodity, int window) const {
+        if (window == 1) {
+            return history.trades.most_recent.at(commodity);
+        }
         return history.trades.average(commodity, window);
     }
     double AverageHistoricalAsks(const std::string& commodity, int window) const {
+        if (window == 1) {
+            return history.asks.most_recent.at(commodity);
+        }
         return history.asks.average(commodity, window);
     }
     double AverageHistoricalBids(const std::string& commodity, int window) const {

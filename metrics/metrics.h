@@ -107,9 +107,9 @@ public:
     }
     void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
         auto curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
-        double time_passed_ms = (curr_time - start_time);
+        double time_passed_ms = (double)(curr_time - start_time) / 1000;
         for (auto& good : tracked_goods) {
-            double price = auction_house->AverageHistoricalPrice(good, lookback);
+            double price = auction_house->MostRecentPrice(good);
             double asks = auction_house->AverageHistoricalAsks(good, lookback);
             double bids = auction_house->AverageHistoricalBids(good, lookback);
             double trades = auction_house->AverageHistoricalTrades(good, lookback);
@@ -146,7 +146,7 @@ public:
         }
     }
     void plot_verbose() {
-        int smoothing = 4;
+        int smoothing = 3;
         // Plot results
         Gnuplot gp;
         gp << "set multiplot layout 2,2\n";
