@@ -80,7 +80,7 @@ public:
             return;
         }
         char header_string[100]; //yolo lmao
-        snprintf(header_string, 30, "[%s] %s: ",LogLevelToCString(level), name.c_str());
+        snprintf(header_string, 100, "[%s] %s: ",LogLevelToCString(level), name.c_str());
         LogInternal(std::string(header_string) + message);
     }
 };
