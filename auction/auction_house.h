@@ -25,7 +25,7 @@ public:
     History history;
 
 private:
-    int SLEEP_TIME_MS = 5; //ms
+    int SLEEP_TIME_MS = 10; //ms
     std::atomic<bool> queue_active = true;
     std::thread message_thread;
 
@@ -235,13 +235,28 @@ public:
         ask_book_mutex.unlock();
     }
 
-    void Tick() {
+    void Tick(int duration) {
+        std::uint64_t expiry_ms = to_unix_timestamp_ms(std::chrono::system_clock::now()) + duration;
+        while (true) {
+            for (const auto& item : known_commodities) {
+                ResolveOffers(item.first);
+            }
+            logger.Log(Log::INFO, "Net spread profit for tick" + std::to_string(ticks) + ": " + std::to_string(spread_profit));
+            ticks++;
+            std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
+            if (to_unix_timestamp_ms(std::chrono::system_clock::now()) > expiry_ms) {
+                logger.Log(Log::INFO, "Shutting down (expiry time reached)");
+                return;
+            }
+        }
+    }
+
+    void TickOnce() {
         for (const auto& item : known_commodities) {
             ResolveOffers(item.first);
         }
         logger.Log(Log::INFO, "Net spread profit: " + std::to_string(spread_profit));
         ticks++;
-        std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
     }
 private:
     // Transaction functions

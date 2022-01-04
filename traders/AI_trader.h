@@ -62,7 +62,7 @@ private:
     std::weak_ptr<AuctionHouse> auction_house;
     int auction_house_id = -1;
 
-    std::map<std::string, std::vector<double>> _observedTradingRange;
+    std::map<std::string, std::vector<double>> observed_trading_range;
 
     int  external_lookback = 50; //history range (num ticks)
     int internal_lookback = 50; //history range (num trades)
@@ -85,7 +85,7 @@ public:
         _inventory = Inventory(inv_capacity, starting_inv);
         for (const auto &item : starting_inv) {
             double base_price = auction_house.lock()->AverageHistoricalPrice(item.name, external_lookback);
-            _observedTradingRange[item.name] = {base_price*0.5, base_price*2};
+            observed_trading_range[item.name] = {base_price*0.5, base_price*2};
             _inventory.SetCost(item.name, base_price);
         }
     }
@@ -288,21 +288,21 @@ double AITrader::QueryCost(const std::string& name) { return _inventory.QueryCos
 // Trading functions
 void AITrader::UpdatePriceModelFromBid(BidResult& result) {
     for (int i = 0; i < result.quantity_traded; i++) {
-        _observedTradingRange[result.commodity].push_back(result.bought_price);
+        observed_trading_range[result.commodity].push_back(result.bought_price);
     }
 
-    while (_observedTradingRange[result.commodity].size() > internal_lookback) {
-        _observedTradingRange[result.commodity].erase(_observedTradingRange[result.commodity].begin());
+    while (observed_trading_range[result.commodity].size() > internal_lookback) {
+        observed_trading_range[result.commodity].erase(observed_trading_range[result.commodity].begin());
     }
 }
 void AITrader::UpdatePriceModelFromAsk(const AskResult& result) {
 
     for (int i = 0; i < result.quantity_traded; i++) {
-        _observedTradingRange[result.commodity].push_back(result.avg_price);
+        observed_trading_range[result.commodity].push_back(result.avg_price);
     }
 
-    while (_observedTradingRange[result.commodity].size() > internal_lookback) {
-        _observedTradingRange[result.commodity].erase(_observedTradingRange[result.commodity].begin());
+    while (observed_trading_range[result.commodity].size() > internal_lookback) {
+        observed_trading_range[result.commodity].erase(observed_trading_range[result.commodity].begin());
     }
 }
 
@@ -397,16 +397,16 @@ int AITrader::DetermineSaleQuantity(const std::string& commodity) {
 }
 
 std::pair<double, double> AITrader::ObserveTradingRange(const std::string& commodity, int window) {
-    if (_observedTradingRange.count(commodity) < 1 || _observedTradingRange[commodity].empty()) {
+    if (observed_trading_range.count(commodity) < 1 || observed_trading_range[commodity].empty()) {
         return {0,0};
     }
-    double min_observed = _observedTradingRange[commodity][0];
-    double max_observed = _observedTradingRange[commodity][0];
-    window = std::min(window, (int) _observedTradingRange[commodity].size());
+    double min_observed = observed_trading_range[commodity][0];
+    double max_observed = observed_trading_range[commodity][0];
+    window = std::min(window, (int) observed_trading_range[commodity].size());
 
     for (int i = 0; i < window; i++) {
-        min_observed = std::min(min_observed,_observedTradingRange[commodity][i]);
-        max_observed = std::max(max_observed,_observedTradingRange[commodity][i]);
+        min_observed = std::min(min_observed, observed_trading_range[commodity][i]);
+        max_observed = std::max(max_observed, observed_trading_range[commodity][i]);
     }
     return {min_observed, max_observed};
 }

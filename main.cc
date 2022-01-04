@@ -117,7 +117,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
             }
         }
         //all_traders[0]->PrintState();
-        auction_house->Tick();
+        //auction_house->Tick();
 
         // collect metrics
         global_metrics.CollectMetrics(auction_house, all_traders, num_alive);
@@ -139,6 +139,7 @@ void AdvanceTicks(int start_tick, int steps, int& max_id,
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int NUM_TICKS = (animation) ? 2000 : 1000;
+    int DURATION_MS = 10000; //10 second simulation
     int WINDOW_SIZE = 100;
     int STEP_SIZE = 1;
     int STEP_PAUSE_MS = 100;
@@ -230,6 +231,8 @@ void Run(bool animation) {
         max_id++;
     }
 
+    std::thread auction_house_thread(&AuctionHouse::Tick, auction_house, DURATION_MS);
+
     // --- MAIN LOOP ---
     std::cout << std::fixed;
     std::cout << std::setprecision(2);
@@ -252,7 +255,7 @@ void Run(bool animation) {
 
         duration<double, std::milli> ms_double = high_resolution_clock::now() - t1;
         int steptime = ms_double.count();
-        std::cout << "steptime for tick " << curr_tick << ": " << steptime << "ms\n";
+        std::cout << "steptime for ticks " << curr_tick << "-" << curr_tick+STEP_SIZE << ": " << steptime << "ms\n";
         if (animation && curr_tick > WINDOW_SIZE && steptime < target_steptime) {
             std::this_thread::sleep_for(std::chrono::milliseconds(target_steptime-steptime));
         }
@@ -261,7 +264,7 @@ void Run(bool animation) {
         //std::cout << "   FPS: " << 1000/frametime << std::endl;
     }
     auction_house->ShutdownMessageThread();
-
+    auction_house_thread.join();
     //Plot final results
     global_metrics.plot_verbose();
     for (auto& good : tracked_goods) {
