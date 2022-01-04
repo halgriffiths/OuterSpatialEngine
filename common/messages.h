@@ -177,17 +177,17 @@ struct AskResult {
 };
 
 struct BidOffer {
-    std::uint64_t expiry_ns; //unix time in ns
+    std::uint64_t expiry_ms; //unix time in ns
     int sender_id;
     std::string commodity;
     int quantity;
     double unit_price;
-    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ns = 0)
+    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ms = 0)
             : sender_id(sender_id)
             , commodity(commodity_name)
             , quantity(quantity)
             , unit_price(unit_price)
-            , expiry_ns(expiry_ns) {};
+            , expiry_ms(expiry_ms) {};
 
     std::string ToString() {
         std::string output("BID from ");
@@ -203,18 +203,18 @@ struct BidOffer {
 };
 
 struct AskOffer {
-    std::uint64_t expiry_ns; //unix time in ns
+    std::uint64_t expiry_ms; //unix time in ns
     int sender_id;
     std::string commodity;
     int quantity;
     double unit_price;
 
-    AskOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ns = 0)
+    AskOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ms = 0)
             : sender_id(sender_id)
             , commodity(commodity_name)
             , quantity(quantity)
             , unit_price(unit_price)
-            , expiry_ns(expiry_ns) {};
+            , expiry_ms(expiry_ms) {};
 
     std::string ToString() {
         std::string output("ASK from ");

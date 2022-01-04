@@ -49,7 +49,7 @@ public:
 
 class AITrader : public Trader {
 private:
-    int TICK_TIME_MS = 100;
+    int TICK_TIME_MS = 10;
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
     friend Role;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
@@ -359,8 +359,8 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     int quantity = std::max(std::min(ideal, max_limit), min_limit);
 
     //set to expire just before next tick
-
-    return BidOffer(id, commodity, quantity, bid_price);
+    std::uint64_t expiry_ms = to_unix_timestamp_ms(std::chrono::system_clock::now()) + TICK_TIME_MS;
+    return BidOffer(id, commodity, quantity, bid_price, expiry_ms);
 }
 AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     //AI agents offer a fair ask price - costs + 15% profit
@@ -373,7 +373,10 @@ AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     int quantity = DetermineSaleQuantity(commodity);
     //can't sell less than limit
     quantity = quantity < min_limit ? min_limit : quantity;
-    return AskOffer(id, commodity, quantity, ask_price);
+
+    //set to expire just before next tick
+    std::uint64_t expiry_ms = to_unix_timestamp_ms(std::chrono::system_clock::now()) + TICK_TIME_MS;
+    return AskOffer(id, commodity, quantity, ask_price, expiry_ms);
 }
 
 int AITrader::DetermineBuyQuantity(const std::string& commodity, double avg_price) {

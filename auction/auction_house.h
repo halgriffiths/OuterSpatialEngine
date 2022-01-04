@@ -25,6 +25,7 @@ public:
     History history;
 
 private:
+    int SLEEP_TIME_MS = 5; //ms
     std::atomic<bool> queue_active = true;
     std::thread message_thread;
 
@@ -58,7 +59,7 @@ public:
             }
             FlushInbox();
             FlushOutbox();
-            std::this_thread::sleep_for(std::chrono::milliseconds{5});
+            std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
         }
     }
 
@@ -228,6 +229,7 @@ public:
         }
         logger.Log(Log::INFO, "Net spread profit: " + std::to_string(spread_profit));
         ticks++;
+        std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
     }
 private:
     // Transaction functions
@@ -340,10 +342,10 @@ private:
             return false; //trader not found
         }
 
-        if (curr_bid.expiry_ns == 0) {
-            curr_bid.expiry_ns = 1;
+        if (curr_bid.expiry_ms == 0) {
+            curr_bid.expiry_ms = 1;
             bid_result.broker_fee_paid = true; //dont need to pay broker fees for immediate offers
-        } else if (curr_bid.expiry_ns < resolve_time) {
+        } else if (curr_bid.expiry_ms < resolve_time) {
             return false; //expired bid
         }
 
@@ -357,10 +359,10 @@ private:
         if (known_traders.find(curr_ask.sender_id) == known_traders.end()) {
             return false; //trader not found
         }
-        if (curr_ask.expiry_ns == 0) {
-            curr_ask.expiry_ns = 1;
+        if (curr_ask.expiry_ms == 0) {
+            curr_ask.expiry_ms = 1;
             ask_result.broker_fee_paid = true; //dont need to pay broker fees for immediate offers
-        } else if (curr_ask.expiry_ns < resolve_time) {
+        } else if (curr_ask.expiry_ms < resolve_time) {
             return false; //expired bid
         }
 
