@@ -263,7 +263,7 @@ void Run(bool animation) {
         //std::cout << "TPS: " << frametime/STEP_SIZE << "ms";
         //std::cout << "   FPS: " << 1000/frametime << std::endl;
     }
-    auction_house->ShutdownMessageThread();
+    auction_house->Shutdown();
     auction_house_thread.join();
     //Plot final results
     global_metrics.plot_verbose();

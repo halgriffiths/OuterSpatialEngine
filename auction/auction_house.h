@@ -23,7 +23,7 @@
 class AuctionHouse : public Agent {
 public:
     History history;
-
+    std::atomic_bool destroyed;
 private:
     int SLEEP_TIME_MS = 10; //ms
     std::atomic<bool> queue_active = true;
@@ -63,10 +63,17 @@ public:
         }
     }
 
+    void Shutdown(){
+        ShutdownMessageThread();
+        destroyed = true;
+    }
+
     void ShutdownMessageThread() {
         logger.Log(Log::INFO, "Shutting down message thread...");
         queue_active = false;
-        message_thread.join();
+        if (message_thread.joinable()) {
+            message_thread.join();
+        }
         logger.Log(Log::INFO, "Message thread shutdown");
     }
 
@@ -237,7 +244,7 @@ public:
 
     void Tick(int duration) {
         std::uint64_t expiry_ms = to_unix_timestamp_ms(std::chrono::system_clock::now()) + duration;
-        while (true) {
+        while (!destroyed) {
             for (const auto& item : known_commodities) {
                 ResolveOffers(item.first);
             }
@@ -246,7 +253,7 @@ public:
             std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
             if (to_unix_timestamp_ms(std::chrono::system_clock::now()) > expiry_ms) {
                 logger.Log(Log::INFO, "Shutting down (expiry time reached)");
-                return;
+                Shutdown();
             }
         }
     }
