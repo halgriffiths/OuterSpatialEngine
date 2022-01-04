@@ -259,9 +259,6 @@ void Run(bool animation) {
         if (animation && curr_tick > WINDOW_SIZE && steptime < target_steptime) {
             std::this_thread::sleep_for(std::chrono::milliseconds(target_steptime-steptime));
         }
-
-        //std::cout << "TPS: " << frametime/STEP_SIZE << "ms";
-        //std::cout << "   FPS: " << 1000/frametime << std::endl;
     }
     auction_house->Shutdown();
     auction_house_thread.join();

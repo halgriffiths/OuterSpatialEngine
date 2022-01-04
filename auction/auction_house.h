@@ -24,6 +24,8 @@ class AuctionHouse : public Agent {
 public:
     History history;
     std::atomic_bool destroyed;
+    
+    std::string unique_name;
 private:
     int SLEEP_TIME_MS = 10; //ms
     std::atomic<bool> queue_active = true;
@@ -49,7 +51,8 @@ public:
     double spread_profit = 0;
     AuctionHouse(int auction_house_id, Log::LogLevel verbosity)
         : Agent(auction_house_id)
-        , logger(ConsoleLogger(std::string("AH")+std::to_string(id), verbosity))
+        , unique_name(std::string("AH")+std::to_string(id))
+        , logger(ConsoleLogger(verbosity))
         , message_thread([this] { MessageLoop(); }) { }
 
     void MessageLoop() {
@@ -69,44 +72,44 @@ public:
     }
 
     void ShutdownMessageThread() {
-        logger.Log(Log::INFO, "Shutting down message thread...");
+        logger.Log(Log::INFO, "Shutting down message thread...", unique_name);
         queue_active = false;
         if (message_thread.joinable()) {
             message_thread.join();
         }
-        logger.Log(Log::INFO, "Message thread shutdown");
+        logger.Log(Log::INFO, "Message thread shutdown", unique_name);
     }
 
     void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
-        logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader");
-        logger.LogSent(recipient->id, Log::DEBUG, outgoing_message.ToString());
+        logger.Log(Log::WARN, "Using SendDirect method to reach unregistered trader", unique_name);
+        logger.LogSent(recipient->id, Log::DEBUG, outgoing_message.ToString(), unique_name);
         recipient->ReceiveMessage(std::move(outgoing_message));
     }
     void FlushOutbox() {
-        logger.Log(Log::DEBUG, "Flushing outbox");
+        logger.Log(Log::DEBUG, "Flushing outbox", unique_name);
         auto outgoing = outbox.pop();
         int num_processed = 0;
         while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             if (known_traders.find(outgoing->first) == known_traders.end()) {
-                logger.Log(Log::DEBUG, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
+                logger.Log(Log::DEBUG, "Failed to send message, unknown recipient " + std::to_string(outgoing->first), unique_name);
             } else {
-                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
+                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString(), unique_name);
                 known_traders[outgoing->first]->ReceiveMessage(std::move(outgoing->second));
             }
             num_processed++;
             outgoing = outbox.pop();
         }
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-            logger.Log(Log::WARN, "Outbox not fully flushed");
+            logger.Log(Log::WARN, "Outbox not fully flushed", unique_name);
         }
-        logger.Log(Log::DEBUG, "Flush finished (sent " + std::to_string(num_processed)+")");
+        logger.Log(Log::DEBUG, "Flush finished (sent " + std::to_string(num_processed)+")", unique_name);
     }
     void FlushInbox() {
-        logger.Log(Log::DEBUG, "Flushing inbox");
+        logger.Log(Log::DEBUG, "Flushing inbox", unique_name);
         auto incoming_message = inbox.pop();
         int num_processed = 0;
         while (incoming_message && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-            logger.LogReceived(incoming_message->sender_id, Log::DEBUG, incoming_message->ToString());
+            logger.LogReceived(incoming_message->sender_id, Log::DEBUG, incoming_message->ToString(), unique_name);
             if (incoming_message->GetType() == Msg::EMPTY) {
                 //no-op
             } else if (incoming_message->GetType() == Msg::BID_OFFER) {
@@ -124,16 +127,16 @@ public:
             incoming_message = inbox.pop();
         }
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-            logger.Log(Log::WARN, "Inbox not fully flushed");
+            logger.Log(Log::WARN, "Inbox not fully flushed", unique_name);
         }
-        logger.Log(Log::DEBUG, "Flush finished (received " + std::to_string(num_processed)+")");
+        logger.Log(Log::DEBUG, "Flush finished (received " + std::to_string(num_processed)+")", unique_name);
     }
 
     // Message processing
     void ProcessBid(Message& message) {
         auto bid = message.bid_offer;
         if (!bid) {
-            logger.Log(Log::ERROR, "Malformed bid_offer message");
+            logger.Log(Log::ERROR, "Malformed bid_offer message", unique_name);
             return; //drop
         }
         bid_book_mutex.lock();
@@ -143,7 +146,7 @@ public:
     void ProcessAsk(Message& message) {
         auto ask = message.ask_offer;
         if (!ask) {
-            logger.Log(Log::ERROR, "Malformed ask_offer message");
+            logger.Log(Log::ERROR, "Malformed ask_offer message", unique_name);
             return; //drop
         }
         ask_book_mutex.lock();
@@ -153,7 +156,7 @@ public:
     void ProcessRegistrationRequest(Message& message) {
         auto request = message.register_request;
         if (!request) {
-            logger.Log(Log::ERROR, "Malformed register_request message");
+            logger.Log(Log::ERROR, "Malformed register_request message", unique_name);
             return; //drop
         }
         // check no id clash
@@ -177,7 +180,7 @@ public:
         // Otherwise, OK the request and register
         auto res = request->trader_pointer.lock();
         if (!res) {
-            logger.Log(Log::ERROR, "Failed to convert weak_ptr to shared, unable to reply to reg request from "+std::to_string(requested_id));
+            logger.Log(Log::ERROR, "Failed to convert weak_ptr to shared, unable to reply to reg request from "+std::to_string(requested_id), unique_name);
             return;
         }
         known_traders[requested_id] = std::move(res);
@@ -185,7 +188,7 @@ public:
         SendMessage(*msg, requested_id);
     }
     void ProcessShutdownNotify(Message& message) {
-        logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id));
+        logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id), unique_name);
         known_traders.erase(message.sender_id);
     }
 
@@ -248,11 +251,11 @@ public:
             for (const auto& item : known_commodities) {
                 ResolveOffers(item.first);
             }
-            logger.Log(Log::INFO, "Net spread profit for tick" + std::to_string(ticks) + ": " + std::to_string(spread_profit));
+            logger.Log(Log::INFO, "Net spread profit for tick" + std::to_string(ticks) + ": " + std::to_string(spread_profit), unique_name);
             ticks++;
             std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
             if (to_unix_timestamp_ms(std::chrono::system_clock::now()) > expiry_ms) {
-                logger.Log(Log::INFO, "Shutting down (expiry time reached)");
+                logger.Log(Log::INFO, "Shutting down (expiry time reached)", unique_name);
                 Shutdown();
             }
         }
@@ -262,34 +265,34 @@ public:
         for (const auto& item : known_commodities) {
             ResolveOffers(item.first);
         }
-        logger.Log(Log::INFO, "Net spread profit: " + std::to_string(spread_profit));
+        logger.Log(Log::INFO, "Net spread profit: " + std::to_string(spread_profit), unique_name);
         ticks++;
     }
 private:
     // Transaction functions
     bool CheckBidStake(BidOffer& offer) {
         if (offer.quantity < 0 || offer.unit_price <= 0) {
-            logger.Log(Log::WARN, "Rejected nonsensical bid: " + offer.ToString());
+            logger.Log(Log::WARN, "Rejected nonsensical bid: " + offer.ToString(), unique_name);
             return false;
         }
 
         //we refund the agent (if applicable) upon transaction resolution
         auto res = known_traders[offer.sender_id]->HasMoney(offer.quantity*offer.unit_price);
         if (!res) {
-            logger.Log(Log::DEBUG, "Failed to take Bid stake: " + offer.ToString());
+            logger.Log(Log::DEBUG, "Failed to take Bid stake: " + offer.ToString(), unique_name);
             return false;
         }
         return true;
     }
     bool CheckAskStake(AskOffer& offer) {
         if (offer.quantity < 0 || offer.unit_price <= 0) {
-            logger.Log(Log::WARN, "Rejected nonsensical ask: " + offer.ToString());
+            logger.Log(Log::WARN, "Rejected nonsensical ask: " + offer.ToString(), unique_name);
             return false;
         }
         //we refund the agent (if applicable) upon transaction resolution
         auto res = known_traders[offer.sender_id]->HasCommodity(offer.commodity, offer.quantity);
         if (!res) {
-            logger.Log(Log::DEBUG, "Failed to take Ask stake: " + offer.ToString());
+            logger.Log(Log::DEBUG, "Failed to take Ask stake: " + offer.ToString(), unique_name);
             return false;
         }
         return true;
@@ -321,13 +324,13 @@ private:
         auto actual_quantity = known_traders[seller]->TryTakeCommodity(commodity, quantity, 0, true);
         if (actual_quantity == 0) {
             // this may be unrecoverable, not sure
-            logger.Log(Log::WARN, "Seller lacks good! Aborting trade");
+            logger.Log(Log::WARN, "Seller lacks good! Aborting trade", unique_name);
             return 1;
         }
         auto actual_money = known_traders[buyer]->TryTakeMoney(actual_quantity*clearing_price, true);
         if (actual_money == 0) {
             // this may be unrecoverable, not sure
-            logger.Log(Log::ERROR, "Buyer lacks money! Aborting trade");
+            logger.Log(Log::ERROR, "Buyer lacks money! Aborting trade", unique_name);
             return 2;
         }
 
@@ -338,7 +341,7 @@ private:
         spread_profit += profit*SALES_TAX;
 
         auto info_msg = std::string("Made trade: ") + std::to_string(seller) + std::string(" >>> ") + std::to_string(buyer) + std::string(" : ") + commodity + std::string(" x") + std::to_string(quantity) + std::string(" @ $") + std::to_string(clearing_price);
-        logger.Log(Log::INFO, info_msg);
+        logger.Log(Log::INFO, info_msg, unique_name);
         return 0;
     }
 

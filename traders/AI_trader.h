@@ -79,7 +79,8 @@ public:
     , auction_house(std::move(auction_house_ptr))
     , logic(std::move(AI_logic))
     , money(starting_money)
-    , logger(ConsoleLogger(class_name+std::to_string(id), log_level)) {
+    , unique_name(class_name + std::to_string(id))
+    , logger(ConsoleLogger(log_level)) {
         //construct inv
         auction_house_id = auction_house.lock()->id;
         _inventory = Inventory(inv_capacity, starting_inv);
@@ -138,31 +139,31 @@ public:
 };
 
 void AITrader::FlushOutbox() {
-        logger.Log(Log::DEBUG, "Flushing outbox");
+        logger.Log(Log::DEBUG, "Flushing outbox", unique_name);
         auto outgoing = outbox.pop();
         int num_processed = 0;
         while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             // Trader can currently only talk to auction houses (not other traders)
             if (outgoing->first != auction_house_id) {
-                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
+                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first), unique_name);
             } else {
-                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
+                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString(), unique_name);
                 auction_house.lock()->ReceiveMessage(std::move(outgoing->second));
             }
             num_processed++;
             outgoing = outbox.pop();
         }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        logger.Log(Log::WARN, "Outbox not fully flushed");
+        logger.Log(Log::WARN, "Outbox not fully flushed", unique_name);
     }
-    logger.Log(Log::DEBUG, "Flush finished");
+    logger.Log(Log::DEBUG, "Flush finished", unique_name);
 }
 void AITrader::FlushInbox() {
-    logger.Log(Log::DEBUG, "Flushing inbox");
+    logger.Log(Log::DEBUG, "Flushing inbox", unique_name);
     auto incoming_message = inbox.pop();
     int num_processed = 0;
     while (incoming_message && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        logger.LogReceived(incoming_message->sender_id, Log::INFO, incoming_message->ToString());
+        logger.LogReceived(incoming_message->sender_id, Log::INFO, incoming_message->ToString(), unique_name);
         if (incoming_message->GetType() == Msg::EMPTY) {
             //no-op
         } else if (incoming_message->GetType() == Msg::BID_RESULT) {
@@ -178,9 +179,9 @@ void AITrader::FlushInbox() {
         incoming_message = inbox.pop();
     }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        logger.Log(Log::WARN, "Inbox not fully flushed");
+        logger.Log(Log::WARN, "Inbox not fully flushed", unique_name);
     }
-    logger.Log(Log::DEBUG, "Flush finished");
+    logger.Log(Log::DEBUG, "Flush finished", unique_name);
 }
 void AITrader::ProcessAskResult(Message& message) {
     UpdatePriceModelFromAsk(*message.ask_result);
@@ -191,9 +192,9 @@ void AITrader::ProcessBidResult(Message& message) {
 void AITrader::ProcessRegistrationResponse(Message& message) {
     if (message.register_response->accepted) {
         initialised = true;
-        logger.Log(Log::INFO, "Successfully registered with auction house");
+        logger.Log(Log::INFO, "Successfully registered with auction house", unique_name);
     } else {
-        logger.Log(Log::ERROR, "Failed to register with auction house");
+        logger.Log(Log::ERROR, "Failed to register with auction house", unique_name);
         Destroy();
     }
 }
@@ -208,7 +209,7 @@ double AITrader::TryTakeMoney(double quantity, bool atomic) {
         amount_transferred = std::min(money, quantity);
     } else {
         if (money < quantity) {
-            logger.Log(Log::DEBUG, "Failed to take $"+std::to_string(quantity));
+            logger.Log(Log::DEBUG, "Failed to take $"+std::to_string(quantity), unique_name);
             amount_transferred = 0;
         } else {
             amount_transferred = quantity;
@@ -218,11 +219,11 @@ double AITrader::TryTakeMoney(double quantity, bool atomic) {
     return amount_transferred;
 }
 void AITrader::ForceTakeMoney(double quantity) {
-    logger.Log(Log::DEBUG, "Lost money: $" + std::to_string(quantity));
+    logger.Log(Log::DEBUG, "Lost money: $" + std::to_string(quantity), unique_name);
     money -= quantity;
 }
 void AITrader::AddMoney(double quantity) {
-    logger.Log(Log::DEBUG, "Gained money: $" + std::to_string(quantity));
+    logger.Log(Log::DEBUG, "Gained money: $" + std::to_string(quantity), unique_name);
     money += quantity;
 }
 
@@ -234,7 +235,7 @@ int AITrader::TryTakeCommodity(const std::string& commodity, int quantity, std::
     auto comm = _inventory.GetItem(commodity);
     if (!comm) {
         //item unknown, fail
-        logger.Log(Log::ERROR, "Tried to take unknown item "+commodity);
+        logger.Log(Log::ERROR, "Tried to take unknown item "+commodity, unique_name);
         return 0;
     }
     int actual_transferred ;
@@ -244,7 +245,7 @@ int AITrader::TryTakeCommodity(const std::string& commodity, int quantity, std::
     } else {
         if (atomic) {
             actual_transferred = 0;
-            logger.Log(Log::DEBUG, "Failed to take "+commodity+std::string(" x") + std::to_string(quantity));
+            logger.Log(Log::DEBUG, "Failed to take "+commodity+std::string(" x") + std::to_string(quantity), unique_name);
         } else {
             actual_transferred = stored;
         }
@@ -256,7 +257,7 @@ int AITrader::TryAddCommodity(const std::string& commodity, int quantity, std::o
     auto comm = _inventory.GetItem(commodity);
     if (!comm) {
         //item unknown, fail
-        logger.Log(Log::ERROR, "Tried to add unknown item "+commodity);
+        logger.Log(Log::ERROR, "Tried to add unknown item "+commodity, unique_name);
         return 0;
     }
     int actual_transferred;
@@ -265,7 +266,7 @@ int AITrader::TryAddCommodity(const std::string& commodity, int quantity, std::o
     } else {
         if (atomic) {
             actual_transferred = 0;
-            logger.Log(Log::DEBUG, "Failed to add "+commodity+std::string(" x") + std::to_string(quantity));
+            logger.Log(Log::DEBUG, "Failed to add "+commodity+std::string(" x") + std::to_string(quantity), unique_name);
         } else {
             actual_transferred = std::floor(_inventory.GetEmptySpace()/comm->size);
             //overproduced! Drop value of goods accordingly
@@ -310,7 +311,7 @@ void AITrader::UpdatePriceModelFromAsk(const AskResult& result) {
 void AITrader::GenerateOffers(const std::string& commodity) {
     int surplus = _inventory.Surplus(commodity);
     if (surplus >= 1) {
-        logger.Log(Log::DEBUG, "Considering ask for "+commodity + std::string(" - Current surplus = ") + std::to_string(surplus));
+        logger.Log(Log::DEBUG, "Considering ask for "+commodity + std::string(" - Current surplus = ") + std::to_string(surplus), unique_name);
         auto offer = CreateAsk(commodity, 1);
         if (offer.quantity > 0) {
             SendMessage(*Message(id).AddAskOffer(offer), auction_house_id);
@@ -335,7 +336,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
         if (max_limit > 0)
         {
             int min_limit = (_inventory.Query(commodity) == 0) ? 1 : 0;
-            logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage));
+            logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage), unique_name);
 
             double desperation = 1;
             double days_savings = money / IDLE_TAX;
@@ -384,7 +385,7 @@ int AITrader::DetermineBuyQuantity(const std::string& commodity, double avg_pric
     std::pair<double, double> range = ObserveTradingRange(commodity, internal_lookback);
     if (range.first == 0 && range.second == 0) {
         //uninitialised range
-        logger.Log(Log::WARN, "Tried to make bid with unitialised trading range");
+        logger.Log(Log::WARN, "Tried to make bid with unitialised trading range", unique_name);
         return 0;
     }
     double favorability = PositionInRange(avg_price, range.first, range.second);
@@ -419,7 +420,7 @@ void AITrader::Destroy() {
         res->ReceiveMessage(*Message(id).AddShutdownNotify({id}));
     }
     destroyed = true;
-    logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."));
+    logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."), unique_name);
     _inventory.inventory.clear();
     auction_house.reset();
 }
@@ -429,7 +430,7 @@ void AITrader::Tick() {
         FlushInbox();
         if (initialised) {
             if (logic) {
-                logger.Log(Log::DEBUG, "Ticking internal logic");
+                logger.Log(Log::DEBUG, "Ticking internal logic", unique_name);
                 (*logic)->TickRole(*this);
             }
             for (const auto &commodity : _inventory.inventory) {
@@ -453,7 +454,7 @@ void AITrader::TickOnce() {
     FlushInbox();
     if (initialised) {
         if (logic) {
-            logger.Log(Log::DEBUG, "Ticking internal logic");
+            logger.Log(Log::DEBUG, "Ticking internal logic", unique_name);
             (*logic)->TickRole(*this);
         }
         for (const auto& commodity : _inventory.inventory) {
@@ -478,7 +479,7 @@ bool Role::Random(double chance) {
 }
 void Role::Produce(AITrader& trader, const std::string& commodity, int amount, double chance) {
     if (amount > 0 && Random(chance)) {
-        trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount));
+        trader.logger.Log(Log::DEBUG, "Produced " + std::string(commodity) + std::string(" x") + std::to_string(amount), trader.unique_name);
 
         //the richer you are, the greedier you get (the higher your minimum cost becomes)
         track_costs = std::max(trader.QueryMoney() / 50, track_costs);
@@ -489,7 +490,7 @@ void Role::Produce(AITrader& trader, const std::string& commodity, int amount, d
 }
 void Role::Consume(AITrader& trader, const std::string& commodity, int amount, double chance) {
     if (Random(chance)) {
-        trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount));
+        trader.logger.Log(Log::DEBUG, "Consumed " + std::string(commodity) + std::string(" x") + std::to_string(amount), trader.unique_name);
         int actual_quantity = trader.TryTakeCommodity(commodity, amount, 0, false);
         if (actual_quantity > 0) {
             track_costs += actual_quantity*trader.QueryCost(commodity);

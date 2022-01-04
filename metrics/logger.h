@@ -18,8 +18,20 @@ namespace Log{
     };
 }
 
-namespace {
-    const char* LogLevelToCString(Log::LogLevel level) {
+// Base class makes no logs
+class Logger {
+public:
+
+    Logger(Log::LogLevel verbosity = Log::ERROR) : verbosity(verbosity) {};
+
+    virtual void LogInternal(std::string raw_message) const {return;};
+    virtual void LogSent(int to,Log::LogLevel level, std::string message, std::string& name) const {return;};
+    virtual void LogReceived(int from,Log::LogLevel level, std::string message, std::string& name) const {return;};
+    virtual void Log(Log::LogLevel level, std::string message, std::string& name) const {return;};
+    std::atomic<Log::LogLevel> verbosity;
+
+protected:
+    const char* LogLevelToCString(Log::LogLevel level) const {
         const char* level_name;
         if (level == Log::ERROR) {
             level_name = "ERROR";
@@ -34,32 +46,18 @@ namespace {
         }
         return level_name;
     }
-}
-// Base class makes no logs
-class Logger {
-public:
-    const std::string name;
-
-    Logger(std::string owner_name = "none",Log::LogLevel verbosity = Log::ERROR)
-    : name(std::move(owner_name))
-    , verbosity(verbosity) {};
-    virtual void LogInternal(std::string raw_message) {return;};
-    virtual void LogSent(int to,Log::LogLevel level, std::string message) {return;};
-    virtual void LogReceived(int from,Log::LogLevel level, std::string message) {return;};
-    virtual void Log(Log::LogLevel level, std::string message) {return;};
-    Log::LogLevel verbosity;
 };
 
 class ConsoleLogger : public Logger {
 public:
-    ConsoleLogger(std::string owner_name,Log::LogLevel verbosity)
-        : Logger(std::move(owner_name), verbosity) {};
+    ConsoleLogger(Log::LogLevel verbosity)
+        : Logger(verbosity) {};
 
-    void LogInternal(std::string raw_message) override {
+    void LogInternal(std::string raw_message) const override {
         std::cout << raw_message << std::endl;
     }
 
-    void LogSent(int to, Log::LogLevel level, std::string message) override {
+    void LogSent(int to, Log::LogLevel level, std::string message, std::string& name) const override {
         if (level > verbosity) {
             return;
         }
@@ -68,7 +66,7 @@ public:
         LogInternal(std::string(header_string) + message);
     }
 
-    void LogReceived(int from,Log::LogLevel level, std::string message) override {
+    void LogReceived(int from, Log::LogLevel level, std::string message, std::string& name) const override {
         if (level > verbosity) {
             return;
         }
@@ -77,7 +75,7 @@ public:
         LogInternal(std::string(header_string) + message);
     }
 
-    void Log(Log::LogLevel level, std::string message) override {
+    void Log(Log::LogLevel level, std::string message, std::string& name) const override {
         if (level > verbosity) {
             return;
         }
