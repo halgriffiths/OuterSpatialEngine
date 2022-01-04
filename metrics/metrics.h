@@ -55,7 +55,7 @@ private:
 
     std::map<std::string, std::unique_ptr<std::ofstream>> data_files;
 
-    int lookback = 5;
+    int lookback = 1;
 public:
     GlobalMetrics(std::vector<std::string> tracked_goods, std::vector<std::string> tracked_roles)
             : tracked_goods(tracked_goods)
@@ -135,7 +135,18 @@ public:
 
         curr_tick++;
     }
+
+    void preprocess(std::vector<std::pair<double, double>>& data, int smoothing = 1) {
+        for (int i = smoothing; i < data.size() - smoothing; i++) {
+            double val = 0;
+            for (int j = -1*smoothing; j <= smoothing; j++) {
+                val += data[i+j].second;
+            }
+            data[i].second = val / (2*smoothing + 1);
+        }
+    }
     void plot_verbose() {
+        int smoothing = 4;
         // Plot results
         Gnuplot gp;
         gp << "set multiplot layout 2,2\n";
@@ -143,6 +154,7 @@ public:
         gp << "set title 'Prices'\n";
         auto plots = gp.plotGroup();
         for (auto& good : tracked_goods) {
+            preprocess(avg_price_metrics[good], smoothing);
             plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
         }
         gp << plots;
@@ -150,6 +162,7 @@ public:
         gp << "set title 'Num successful trades'\n";
         plots = gp.plotGroup();
         for (auto& good : tracked_goods) {
+            preprocess(avg_trades_metrics[good], smoothing);
             plots.add_plot1d(avg_trades_metrics[good], "with lines title '"+good+std::string("'"));
         }
         gp << plots;
@@ -164,6 +177,7 @@ public:
         gp << "set title 'Net supply'\n";
         plots = gp.plotGroup();
         for (auto& good : tracked_goods) {
+            preprocess(net_supply_metrics[good], smoothing);
             plots.add_plot1d(net_supply_metrics[good], "with lines title '"+good+std::string("'"));
         }
         gp << plots;
