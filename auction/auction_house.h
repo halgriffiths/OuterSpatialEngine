@@ -36,7 +36,7 @@ private:
     std::mutex ask_book_mutex;
 //    std::mutex known_traders_mutex;
 
-    int MAX_PROCESSED_MESSAGES_PER_FLUSH = 500;
+    int MAX_PROCESSED_MESSAGES_PER_FLUSH = 800;
     double SALES_TAX = 0.08;
     double BROKER_FEE = 0.03;
     int ticks = 0;
@@ -217,12 +217,20 @@ public:
         }
         return history.buy_prices.average(commodity, window);
     }
+    double t_AverageHistoricalBuyPrice(const std::string& commodity, int window) const {
+        return history.buy_prices.t_average(commodity, window);
+    }
+
     double AverageHistoricalPrice(const std::string& commodity, int window) const {
         if (window == 1) {
             return history.prices.most_recent.at(commodity);
         }
         return history.prices.average(commodity, window);
     }
+    double t_AverageHistoricalPrice(const std::string& commodity, int window) const {
+        return history.prices.t_average(commodity, window);
+    }
+
     double AverageHistoricalTrades(const std::string& commodity, int window) const {
         if (window == 1) {
             return history.trades.most_recent.at(commodity);

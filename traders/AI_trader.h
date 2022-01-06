@@ -70,7 +70,7 @@ private:
 
     std::map<std::string, std::vector<double>> observed_trading_range;
 
-    int  external_lookback = 50; //history range (num ticks)
+    int  external_lookback = 50*TICK_TIME_MS; //history range (num ticks)
     int internal_lookback = 50; //history range (num trades)
 
     double IDLE_TAX = 20;
@@ -93,7 +93,7 @@ public:
         auction_house_id = auction_house.lock()->id;
         _inventory = Inventory(inv_capacity, starting_inv);
         for (const auto &item : starting_inv) {
-            double base_price = auction_house.lock()->AverageHistoricalPrice(item.name, external_lookback);
+            double base_price = auction_house.lock()->t_AverageHistoricalPrice(item.name, external_lookback);
             observed_trading_range[item.name] = {base_price*0.5, base_price*2};
             _inventory.SetCost(item.name, base_price);
         }
@@ -381,7 +381,7 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     double fair_bid_price;
     auto res = auction_house.lock();
     if (res) {
-        fair_bid_price = res->AverageHistoricalPrice(commodity, external_lookback);
+        fair_bid_price = res->t_AverageHistoricalPrice(commodity, external_lookback);
     } else {
         destroyed = true;
         // quantity 0 BidOffers are never sent
@@ -407,7 +407,7 @@ AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     double ask_price;
     auto res = auction_house.lock();
     if (res) {
-        market_price = res->AverageHistoricalBuyPrice(commodity, external_lookback);
+        market_price = res->t_AverageHistoricalBuyPrice(commodity, external_lookback);
     } else {
         destroyed = true;
         // quantity 0 AskOffers are never sent
