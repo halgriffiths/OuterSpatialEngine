@@ -24,7 +24,7 @@
 class AuctionHouse : public Agent {
 public:
     History history;
-    std::atomic_bool destroyed;
+    std::atomic_bool destroyed = false;
     
     std::string unique_name;
 private:
@@ -34,13 +34,13 @@ private:
 
     std::mutex bid_book_mutex;
     std::mutex ask_book_mutex;
-    std::mutex known_traders_mutex;
+//    std::mutex known_traders_mutex;
 
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 500;
     double SALES_TAX = 0.08;
     double BROKER_FEE = 0.03;
     int ticks = 0;
-    std::mt19937 rng_gen = std::mt19937(std::random_device()());
+//    std::mt19937 rng_gen = std::mt19937(std::random_device()());
     std::map<std::string, Commodity> known_commodities;
     std::map<int, std::shared_ptr<Trader>> known_traders;  //key = trader-id
 
@@ -56,13 +56,13 @@ public:
         , logger(ConsoleLogger(verbosity))
         , message_thread([this] { MessageLoop(); }) { }
 
-    ~AuctionHouse() {
+    ~AuctionHouse() override {
         logger.Log(Log::DEBUG, "Destroying auction house", unique_name);
         ShutdownMessageThread();
         known_traders.clear();
     }
     int GetNumTraders() const {
-        return known_traders.size();
+        return (int) known_traders.size();
     }
 
     void MessageLoop() {

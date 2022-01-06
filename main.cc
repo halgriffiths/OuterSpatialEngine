@@ -91,7 +91,8 @@ void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int TARGET_NUM_TRADERS = 60;
     int DURATION_MS = 10000; //10 second simulation
-    int TARGET_STEPTIME_MS = 100;
+    int TARGET_STEPTIME_MS = 20;
+    int TARGET_ANIMATION_FRAMETIME_MS = 50; //20FPS
 
 
     using std::chrono::high_resolution_clock;
@@ -194,13 +195,13 @@ void Run(bool animation) {
         }
         global_metrics.CollectMetrics(auction_house, num_traders);
         std::chrono::duration<double, std::milli> ms_double = std::chrono::high_resolution_clock::now() - t1;
-        int working_frametime_ms = ms_double.count();
+        int working_frametime_ms = (int) ms_double.count();
 
         if (working_frametime_ms < TARGET_STEPTIME_MS) {
             std::this_thread::sleep_for(std::chrono::milliseconds{TARGET_STEPTIME_MS - working_frametime_ms});
         }
         ms_double = std::chrono::high_resolution_clock::now() - t1;
-        int frametime_ms = ms_double.count();
+        int frametime_ms = (int) ms_double.count();
         std::cout << "  Working/Final frametime for tick " << curr_tick << ": " << working_frametime_ms << "/" << frametime_ms << std::endl;
         elapsed += frametime_ms;
 //        {
@@ -239,8 +240,8 @@ void Run(bool animation) {
     for (auto& role : tracked_roles) {
         std::cout << role << ": " << global_metrics.age_per_class[role] << "(" <<global_metrics.deaths_per_class[role] <<" total)" << std::endl;
     }
-    int survivor_age = 0;
-    std::cout << "Total auction house profit :" << auction_house->spread_profit << std::endl;;
+
+    std::cout << "Total auction house profit :" << auction_house->spread_profit << std::endl;
     auction_house.reset();
     std::cout << "Finished" << std::endl;
 }

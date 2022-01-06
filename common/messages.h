@@ -9,6 +9,7 @@
 #include "../traders/inventory.h"
 #include "../common/commodity.h"
 #include <memory>
+#include <utility>
 
 class Trader;
 
@@ -27,7 +28,7 @@ namespace Msg {
 }
 
 struct EmptyMessage {
-    std::string ToString() {
+    std::string ToString() const {
         std::string output("Empty message");
         return output;
     }
@@ -37,9 +38,9 @@ struct RegisterRequest {
     std::weak_ptr<Trader> trader_pointer;
     RegisterRequest(int sender_id, std::weak_ptr<Trader> new_trader)
             : sender_id(sender_id)
-            , trader_pointer(new_trader) {};
+            , trader_pointer(std::move(new_trader)) {};
 
-    std::string ToString() {
+    std::string ToString() const {
         std::string output("RegistrationRequest from ");
         output.append(std::to_string(sender_id))
                 .append(" ");
@@ -57,7 +58,7 @@ struct RegisterResponse {
             , accepted(accepted)
             , rejection_reason(std::move(reason)) {};
 
-    std::string ToString() {
+    std::string ToString() const {
         std::string output("RegistrationResponse from ");
         output.append(std::to_string(sender_id))
                 .append(": ");
@@ -96,7 +97,7 @@ struct BidResult {
         quantity_untraded += remainder;
     }
 
-    std::string ToString() {
+    std::string ToString() const {
         std::string output("BID RESULT from ");
         if (quantity_traded > 0) {
             output.append(std::to_string(sender_id))
@@ -147,7 +148,7 @@ struct AskResult {
         quantity_untraded += remainder;
     }
 
-    std::string ToString() {
+    std::string ToString() const {
         std::string output("ASK RESULT from ");
         if (quantity_traded > 0) {
             output.append(std::to_string(sender_id))
@@ -183,14 +184,14 @@ struct BidOffer {
     std::string commodity;
     int quantity;
     double unit_price;
-    BidOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ms = 0)
+    BidOffer(int sender_id, std::string  commodity_name, int quantity, double unit_price, std::uint64_t expiry_ms = 0)
             : sender_id(sender_id)
-            , commodity(commodity_name)
+            , commodity(std::move(commodity_name))
             , quantity(quantity)
             , unit_price(unit_price)
             , expiry_ms(expiry_ms) {};
 
-    std::string ToString() {
+    std::string ToString() const {
         std::string output("BID from ");
         output.append(std::to_string(sender_id))
                 .append(": ")
@@ -210,14 +211,14 @@ struct AskOffer {
     int quantity;
     double unit_price;
 
-    AskOffer(int sender_id, const std::string& commodity_name, int quantity, double unit_price, std::uint64_t expiry_ms = 0)
+    AskOffer(int sender_id, std::string  commodity_name, int quantity, double unit_price, std::uint64_t expiry_ms = 0)
             : sender_id(sender_id)
-            , commodity(commodity_name)
+            , commodity(std::move(commodity_name))
             , quantity(quantity)
             , unit_price(unit_price)
             , expiry_ms(expiry_ms) {};
 
-    std::string ToString() {
+    std::string ToString() const {
         std::string output("ASK from ");
         output.append(std::to_string(sender_id))
                 .append(": ")
@@ -232,17 +233,17 @@ struct AskOffer {
 
 bool operator< (const BidOffer& a, const BidOffer& b) {
     return a.unit_price < b.unit_price;
-};
+}
 bool operator< (const AskOffer& a, const AskOffer& b) {
     return a.unit_price > b.unit_price;
-};
+}
 
 bool operator< (const BidResult& a, const BidResult& b) {
     return a.original_price < b.original_price;
-};
+}
 bool operator< (const AskResult& a, const AskResult& b) {
     return a.avg_price > b.avg_price;
-};
+}
 
 struct ShutdownNotify {
     int sender_id;
@@ -251,11 +252,11 @@ struct ShutdownNotify {
     int age_at_death;
     ShutdownNotify(int sender_id, std::string class_name, int age_at_death)
             : sender_id(sender_id)
-            , class_name(class_name)
+            , class_name(std::move(class_name))
             , age_at_death(age_at_death) {};
 
-    std::string ToString() {
-        return std::string("Shutdown notification received");
+    std::string ToString() const {
+        return std::string("Shutdown notification received ("+class_name+", age "+std::to_string(age_at_death));
     }
 };
 
@@ -264,8 +265,8 @@ struct ShutdownCommand {
     ShutdownCommand(int sender_id)
             : sender_id(sender_id) {};
 
-    std::string ToString() {
-        return std::string("Shutdown notification received");
+    std::string ToString() const {
+        return std::string("Shutdown command received");
     }
 };
 
@@ -355,7 +356,7 @@ public:
         return this;
     }
 
-    std::string ToString() {
+    std::string ToString() const {
         if (type == Msg::EMPTY) {
             return empty_message->ToString();
         } else if (type == Msg::REGISTER_REQUEST) {

@@ -43,28 +43,23 @@ private:
     std::map<std::string, std::tuple<std::string, std::string>> hardcoded_legend;
     int curr_tick = 0;
     std::uint64_t start_time;
-    int SAMPLE_ID = 0;
-    int SAMPLE_ID2 = 1;
+
     std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_trades_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_asks_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_bids_metrics;
     std::map<std::string, std::vector<std::pair<double, double>>> num_alive_metrics;
-    std::map<std::string, std::vector<std::pair<double, double>>> sample1_metrics;
-    std::map<std::string, std::vector<std::pair<double, double>>> sample2_metrics;
 
     std::map<std::string, std::unique_ptr<std::ofstream>> data_files;
 
     int lookback = 1;
 public:
-    GlobalMetrics(std::vector<std::string> tracked_goods, std::vector<std::string> tracked_roles)
+    GlobalMetrics(const std::vector<std::string>& tracked_goods, std::vector<std::string> tracked_roles)
             : tracked_goods(tracked_goods)
             , tracked_roles(tracked_roles) {
 
         init_datafiles();
         start_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
-        sample1_metrics["money"] = {};
-        sample2_metrics["money"] = {};
 
         hardcoded_legend["food"] = {R"(\*)", "\x1b[1;32m*\x1b[0m"};
         hardcoded_legend["wood"] = {"#", "\x1b[1;33m#\x1b[0m"};
@@ -80,9 +75,6 @@ public:
             avg_trades_metrics[good] = {};
             avg_asks_metrics[good] = {};
             avg_bids_metrics[good] = {};
-
-            sample1_metrics[good] = {};
-            sample2_metrics[good] = {};
         }
         for (auto& role : tracked_roles) {
             num_alive_metrics[role] = {};
@@ -105,7 +97,7 @@ public:
             item.second->open(("tmp/"+item.first + ".dat").c_str(), std::ios::app);
         }
     }
-    void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, int num_alive) {
+    void CollectMetrics(const std::shared_ptr<AuctionHouse>& auction_house, int num_alive) {
         auto curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
         double time_passed_ms = (double)(curr_time - start_time) / 1000;
         for (auto& good : tracked_goods) {
@@ -130,7 +122,7 @@ public:
         curr_tick++;
     }
 
-    void preprocess(std::vector<std::pair<double, double>>& data, int smoothing = 1) {
+    static void preprocess(std::vector<std::pair<double, double>>& data, int smoothing = 1) {
         for (int i = smoothing; i < data.size() - smoothing; i++) {
             double val = 0;
             for (int j = -1*smoothing; j <= smoothing; j++) {
@@ -146,7 +138,7 @@ public:
         gp << "set multiplot layout 2,2\n";
         gp << "set offsets 0, 0, 0, 0\n";
         gp << "set title 'Prices'\n";
-        auto plots = gp.plotGroup();
+        auto plots = gnuplotio::Gnuplot::plotGroup();
         for (auto& good : tracked_goods) {
             preprocess(avg_price_metrics[good], smoothing);
             plots.add_plot1d(avg_price_metrics[good], "with lines title '"+good+std::string("'"));
@@ -154,7 +146,7 @@ public:
         gp << plots;
 
         gp << "set title 'Num successful trades'\n";
-        plots = gp.plotGroup();
+        plots = gnuplotio::Gnuplot::plotGroup();
         for (auto& good : tracked_goods) {
             preprocess(avg_trades_metrics[good], smoothing);
             plots.add_plot1d(avg_trades_metrics[good], "with lines title '"+good+std::string("'"));
@@ -162,14 +154,14 @@ public:
         gp << plots;
 
         gp << "set title 'Demographics'\n";
-        plots = gp.plotGroup();
+        plots = gnuplotio::Gnuplot::plotGroup();
         for (auto& role : tracked_roles) {
             plots.add_plot1d(num_alive_metrics[role], "with lines title '"+role+std::string("'"));
         }
         gp << plots;
 
         gp << "set title 'Net supply'\n";
-        plots = gp.plotGroup();
+        plots = gnuplotio::Gnuplot::plotGroup();
         for (auto& good : tracked_goods) {
             preprocess(net_supply_metrics[good], smoothing);
             plots.add_plot1d(net_supply_metrics[good], "with lines title '"+good+std::string("'"));
@@ -218,11 +210,11 @@ public:
         for (auto& good : tracked_goods) {
             double price = avg_price_metrics[good].back().second;
             std::string price_str = std::to_string(price);
-            price_str = price_str.substr(0, price_str.find(".")+3);
+            price_str = price_str.substr(0, price_str.find('.')+3);
 
             double pc_change = GetPercentageChange(good, window);
             std::string pc_change_str = std::to_string(pc_change);
-            pc_change_str = pc_change_str.substr(0, pc_change_str.find(".")+3);
+            pc_change_str = pc_change_str.substr(0, pc_change_str.find('.')+3);
 
             out += "\n";
             out += std::get<1>(hardcoded_legend[good])+std::get<1>(hardcoded_legend[good])+std::get<1>(hardcoded_legend[good])+std::get<1>(hardcoded_legend[good]);
@@ -242,7 +234,7 @@ public:
         return out;
     }
 
-    double GetPercentageChange(std::string name, int window) {
+    double GetPercentageChange(const std::string& name, int window) {
         double prev_value;
         int size = avg_price_metrics[name].size();
         if (window <= size) {
@@ -255,13 +247,14 @@ public:
         return 100*(curr_value- prev_value)/prev_value;
     }
 
-    void TrackDeath(std::string class_name, int age) {
+    void TrackDeath(const std::string& class_name, int age) {
         avg_overall_age = (avg_overall_age*total_deaths + age)/(total_deaths+1);
         total_deaths++;
 
         age_per_class[class_name] = (age_per_class[class_name]*deaths_per_class[class_name] + age)/(deaths_per_class[class_name]+1);
         deaths_per_class[class_name]++;
-        std::map<std::string, double> age_per_class;
+        // TODO: Either finish this or remove it
+        //std::map<std::string, double> age_per_class;
     }
 };
 #endif//CPPBAZAARBOT_METRICS_H
