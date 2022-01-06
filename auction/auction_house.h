@@ -113,7 +113,7 @@ public:
             outgoing = outbox.pop();
         }
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-            logger.Log(Log::WARN, "Outbox not fully flushed", unique_name);
+            logger.Log(Log::WARN, "Outbox not fully flushed (tick "+std::to_string(ticks)+", " + std::to_string(inbox.size())+ " remaining)", unique_name);
         }
         logger.Log(Log::DEBUG, "Flush finished (sent " + std::to_string(num_processed)+")", unique_name);
     }
@@ -140,7 +140,7 @@ public:
             incoming_message = inbox.pop();
         }
         if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-            logger.Log(Log::WARN, "Inbox not fully flushed", unique_name);
+            logger.Log(Log::WARN, "Inbox not fully flushed (tick "+std::to_string(ticks)+", " + std::to_string(inbox.size())+ " remaining)", unique_name);
         }
         logger.Log(Log::DEBUG, "Flush finished (received " + std::to_string(num_processed)+")", unique_name);
     }
@@ -269,15 +269,23 @@ public:
     void Tick(int duration) {
         std::uint64_t expiry_ms = to_unix_timestamp_ms(std::chrono::system_clock::now()) + duration;
         while (!destroyed) {
+            auto t1 = std::chrono::high_resolution_clock::now();
             for (const auto& item : known_commodities) {
                 ResolveOffers(item.first);
             }
             logger.Log(Log::INFO, "Net spread profit for tick" + std::to_string(ticks) + ": " + std::to_string(spread_profit), unique_name);
             ticks++;
-            std::this_thread::sleep_for(std::chrono::milliseconds{SLEEP_TIME_MS});
             if (to_unix_timestamp_ms(std::chrono::system_clock::now()) > expiry_ms) {
                 logger.Log(Log::ERROR, "Shutting down (expiry time reached)", unique_name);
                 Shutdown();
+            }
+
+            std::chrono::duration<double, std::milli> elapsed_ms = std::chrono::high_resolution_clock::now() - t1;
+            int elapsed = elapsed_ms.count();
+            if (elapsed < TICK_TIME_MS) {
+                std::this_thread::sleep_for(std::chrono::milliseconds{TICK_TIME_MS - elapsed});
+            } else {
+                logger.Log(Log::WARN, "AH thread overran on tick "+ std::to_string(ticks) + ": took " + std::to_string(elapsed) +"/" + std::to_string(TICK_TIME_MS) + "ms )", unique_name);
             }
         }
     }

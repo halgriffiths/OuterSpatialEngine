@@ -481,12 +481,11 @@ void AITrader::Shutdown() {
 
 void AITrader::Tick() {
     using std::chrono::milliseconds;
-    using std::chrono::high_resolution_clock;
     using std::chrono::duration;
     using std::chrono::duration_cast;
     logger.Log(Log::INFO, "Beginning tickloop", unique_name);
     while (!destroyed) {
-        auto t1 = high_resolution_clock::now();
+        auto t1 = std::chrono::high_resolution_clock::now();
         if (initialised) {
             if (logic) {
                 logger.Log(Log::DEBUG, "Ticking internal logic", unique_name);
@@ -506,6 +505,8 @@ void AITrader::Tick() {
         int elapsed = elapsed_ms.count();
         if (elapsed < TICK_TIME_MS) {
             std::this_thread::sleep_for(std::chrono::milliseconds{TICK_TIME_MS - elapsed});
+        } else {
+            logger.Log(Log::WARN, "Trader thread overran on tick "+ std::to_string(ticks) + ": took " + std::to_string(elapsed) +"/" + std::to_string(TICK_TIME_MS) + "ms )", unique_name);
         }
     }
 }

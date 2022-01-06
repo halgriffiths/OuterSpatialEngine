@@ -199,10 +199,11 @@ void Run(bool animation) {
 
         if (working_frametime_ms < TARGET_STEPTIME_MS) {
             std::this_thread::sleep_for(std::chrono::milliseconds{TARGET_STEPTIME_MS - working_frametime_ms});
+        } else {
+            //std::cout << "[DRIVER] Overrun frametime for tick " << curr_tick << ": " << working_frametime_ms << "/" << TARGET_STEPTIME_MS << std::endl;
         }
         ms_double = std::chrono::high_resolution_clock::now() - t1;
         int frametime_ms = (int) ms_double.count();
-        std::cout << "  Working/Final frametime for tick " << curr_tick << ": " << working_frametime_ms << "/" << frametime_ms << std::endl;
         elapsed += frametime_ms;
 //        {
 //            if (animation && curr_tick > WINDOW_SIZE) {
