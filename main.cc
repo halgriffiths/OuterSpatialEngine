@@ -86,7 +86,6 @@ std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std:
     return GetProducer(tracked_goods[choice]);
 }
 
-
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int TARGET_NUM_TRADERS = 120;

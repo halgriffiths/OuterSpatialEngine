@@ -28,7 +28,7 @@ public:
     
     std::string unique_name;
 private:
-    int SLEEP_TIME_MS = 10; //ms
+    int TICK_TIME_MS = 10; //ms
     std::atomic<bool> queue_active = true;
     std::thread message_thread;
 

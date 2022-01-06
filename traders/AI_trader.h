@@ -54,7 +54,7 @@ private:
 
     std::string unique_name;
     
-    int TICK_TIME_MS = 10;
+    int TICK_TIME_MS = 100;
 
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
     friend Role;

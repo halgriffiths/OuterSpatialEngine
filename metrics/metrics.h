@@ -141,7 +141,7 @@ public:
         }
     }
     void plot_verbose() {
-        int smoothing = 3;
+        int smoothing = 0;
         // Plot results
         Gnuplot gp;
         gp << "set multiplot layout 2,2\n";
