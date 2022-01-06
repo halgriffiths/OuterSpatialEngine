@@ -40,8 +40,10 @@ public:
     std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics;
 
 private:
+    std::shared_ptr<std::mutex> file_mutex;
     std::map<std::string, std::tuple<std::string, std::string>> hardcoded_legend;
     int curr_tick = 0;
+    std::uint64_t offset;
     std::uint64_t start_time;
 
     std::map<std::string, std::vector<std::pair<double, double>>> net_supply_metrics;
@@ -54,12 +56,13 @@ private:
 
     int lookback = 1;
 public:
-    GlobalMetrics(const std::vector<std::string>& tracked_goods, std::vector<std::string> tracked_roles)
-            : tracked_goods(tracked_goods)
-            , tracked_roles(tracked_roles) {
-
+    GlobalMetrics(std::uint64_t start_time, const std::vector<std::string>& tracked_goods, std::vector<std::string> tracked_roles, std::shared_ptr<std::mutex> mutex)
+            : start_time(start_time)
+            , tracked_goods(tracked_goods)
+            , tracked_roles(tracked_roles)
+            , file_mutex(mutex) {
+        offset = to_unix_timestamp_ms(std::chrono::system_clock::now()) - start_time;
         init_datafiles();
-        start_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
 
         hardcoded_legend["food"] = {R"(\*)", "\x1b[1;32m*\x1b[0m"};
         hardcoded_legend["wood"] = {"#", "\x1b[1;33m#\x1b[0m"};
@@ -84,29 +87,35 @@ public:
     }
 
     void init_datafiles() {
+        file_mutex->lock();
         for (auto& good : tracked_goods) {
             data_files[good] = std::make_unique<std::ofstream>();
             data_files[good]->open(("tmp/"+good + ".dat").c_str(), std::ios::trunc);
             *(data_files[good].get()) << "# raw data file for " << good << std::endl;
             *(data_files[good].get()) << "0 0\n";
         }
+        file_mutex->unlock();
     }
     void update_datafiles() {
+        file_mutex->lock();
         for (auto& item : data_files) {
             item.second->close();
             item.second->open(("tmp/"+item.first + ".dat").c_str(), std::ios::app);
         }
+        file_mutex->unlock();
     }
     void CollectMetrics(const std::shared_ptr<AuctionHouse>& auction_house, int num_alive) {
-        auto curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
-        double time_passed_ms = (double)(curr_time - start_time) / 1000;
+        auto local_curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
+        double time_passed_ms = (double)(local_curr_time - offset - start_time) / 1000;
         for (auto& good : tracked_goods) {
             double price = auction_house->MostRecentPrice(good);
             double asks = auction_house->AverageHistoricalAsks(good, lookback);
             double bids = auction_house->AverageHistoricalBids(good, lookback);
             double trades = auction_house->AverageHistoricalTrades(good, lookback);
 
-            *(data_files[good].get()) << curr_tick << " " << price << "\n";
+            file_mutex->lock();
+            *(data_files[good].get()) << time_passed_ms << " " << price << "\n";
+            file_mutex->unlock();
 
             avg_price_metrics[good].emplace_back(time_passed_ms, price);
             avg_trades_metrics[good].emplace_back(time_passed_ms, trades);

@@ -89,10 +89,11 @@ std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std:
 
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
-    int TARGET_NUM_TRADERS = 60;
-    int DURATION_MS = 10000; //10 second simulation
-    int TARGET_STEPTIME_MS = 20;
-    int TARGET_ANIMATION_FRAMETIME_MS = 50; //20FPS
+    int TARGET_NUM_TRADERS = 120;
+    int DURATION_MS = 600000; //10 second simulation
+
+    int TARGET_STEPTIME_MS = 10;
+    int TARGET_ANIMATION_FPS = 5;
 
 
     using std::chrono::high_resolution_clock;
@@ -106,8 +107,10 @@ void Run(bool animation) {
     std::vector<std::string> tracked_goods = {"food", "wood", "fertilizer", "ore", "metal", "tools"};
     std::vector<std::string> tracked_roles = {"farmer", "woodcutter", "composter", "miner", "refiner", "blacksmith"};
 
-    auto global_metrics = GlobalMetrics(tracked_goods, tracked_roles);
-
+    auto file_mutex = std::make_shared<std::mutex>();
+    auto metrics_start_time = to_unix_timestamp_ms(std::chrono::high_resolution_clock::now());
+    auto global_metrics = GlobalMetrics(metrics_start_time, tracked_goods, tracked_roles, file_mutex);
+    auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_FPS, file_mutex, tracked_goods);
     // --- SET UP DEFAULT COMMODITIES ---
     std::map<std::string, Commodity> comm;
     {
@@ -193,6 +196,7 @@ void Run(bool animation) {
                 new_agent_thread.detach();
             }
         }
+        global_metrics.update_datafiles();
         global_metrics.CollectMetrics(auction_house, num_traders);
         std::chrono::duration<double, std::milli> ms_double = std::chrono::high_resolution_clock::now() - t1;
         int working_frametime_ms = (int) ms_double.count();
@@ -217,6 +221,8 @@ void Run(bool animation) {
     auction_house_thread.join();
     //Plot final results
     global_metrics.plot_verbose();
+    user_display.Shutdown();
+
     for (auto& good : tracked_goods) {
         std::cout << "\t\t\t" << good;
     }
