@@ -11,23 +11,23 @@
 std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::shared_ptr<AuctionHouse>& auction_house,
                                     std::map<std::string, std::vector<InventoryItem>>& inv,
-                                    std::mt19937& gen, Log::LogLevel LOGLEVEL = Log::WARN) {
+                                    std::mt19937& gen, int tick_time_ms, Log::LogLevel LOGLEVEL = Log::WARN) {
     double STARTING_MONEY = 500.0;
     double MIN_COST = 10;
     std::uniform_real_distribution<> random_money(0.5*STARTING_MONEY, 1.5*STARTING_MONEY); // define the range
     std::uniform_real_distribution<> random_cost(0.9*MIN_COST, 1.1*MIN_COST); // define the range
     if (class_name == "farmer") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleFarmer>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], LOGLEVEL);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleFarmer>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], tick_time_ms, LOGLEVEL);
     } else if (class_name == "woodcutter") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleWoodcutter>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], LOGLEVEL);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleWoodcutter>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], tick_time_ms, LOGLEVEL);
     } else if (class_name == "miner") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleMiner>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], LOGLEVEL);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleMiner>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], tick_time_ms, LOGLEVEL);
     } else if (class_name == "refiner") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleRefiner>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], LOGLEVEL);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleRefiner>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], tick_time_ms, LOGLEVEL);
     } else if (class_name == "blacksmith") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleBlacksmith>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], LOGLEVEL);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleBlacksmith>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], tick_time_ms, LOGLEVEL);
     } else if (class_name == "composter") {
-        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleComposter>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], LOGLEVEL);
+        return CreateAndRegister(curr_id, auction_house, std::make_shared<RoleComposter>(random_cost(gen)), class_name, random_money(gen), 20, inv[class_name], tick_time_ms, LOGLEVEL);
     } else {
         std::cout << "Error: Invalid class type passed to make_agent lambda" << std::endl;
     }
@@ -86,10 +86,12 @@ std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std:
     return GetProducer(tracked_goods[choice]);
 }
 
-void Run(bool animation) {
+void Run(double trader_tps) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int TARGET_NUM_TRADERS = 120;
     int DURATION_MS = 60000; //60 second simulation
+
+    int TRADER_TICK_TIME_MS = 1000/trader_tps;
 
     int TARGET_STEPTIME_MS = 10;
     int TARGET_ANIMATION_MS = 200;
@@ -160,7 +162,7 @@ void Run(bool animation) {
     // --- SET UP AI TRADERS ---
     for (int i = 0; i < NUM_TRADERS_EACH_TYPE; i++) {
         for (auto& role : tracked_roles) {
-            auto new_agent = MakeAgent(role, max_id, auction_house, inv, gen, Log::ERROR);
+            auto new_agent = MakeAgent(role, max_id, auction_house, inv, gen, TRADER_TICK_TIME_MS, Log::ERROR);
             max_id++;
             std::thread new_agent_thread(&AITrader::Tick, new_agent);
             new_agent_thread.detach();
@@ -191,7 +193,7 @@ void Run(bool animation) {
         if (num_traders < TARGET_NUM_TRADERS) {
             for (int i = 0; i < TARGET_NUM_TRADERS- num_traders; i++) {
                 auto new_role = ChooseNewClassWeighted(tracked_goods, auction_house, gen);
-                auto new_agent = MakeAgent(new_role, max_id, auction_house, inv, gen);
+                auto new_agent = MakeAgent(new_role, max_id, auction_house, inv, gen, TRADER_TICK_TIME_MS);
                 max_id++;
                 std::thread new_agent_thread(&AITrader::Tick, new_agent);
                 new_agent_thread.detach();
@@ -259,6 +261,8 @@ void Run(bool animation) {
 
 // ---------------- MAIN ----------
 int main(int argc, char *argv[]) {
-    Run((argc > 1));
+
+    double trader_tps = (argc > 1) ? std::stod(std::string(argv[1])) : 2;
+    Run(trader_tps);
     return 0;
 }

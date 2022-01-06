@@ -54,7 +54,7 @@ private:
 
     std::string unique_name;
     
-    int TICK_TIME_MS = 100;
+    int TICK_TIME_MS;
 
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
     friend Role;
@@ -81,14 +81,15 @@ private:
 public:
     std::atomic<bool> destroyed = false;
 
-    AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel verbosity = Log::WARN)
+    AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, int tick_time_ms, Log::LogLevel verbosity = Log::WARN)
     : Trader(id, class_name)
     , auction_house(std::move(auction_house_ptr))
     , logic(std::move(AI_logic))
     , money(starting_money)
     , unique_name(class_name + std::to_string(id))
     , logger(ConsoleLogger(verbosity))
-    , message_thread([this] { MessageLoop(); }){
+    , message_thread([this] { MessageLoop(); })
+    , TICK_TIME_MS(tick_time_ms) {
         //construct inv
         auction_house_id = auction_house.lock()->id;
         _inventory = Inventory(inv_capacity, starting_inv);

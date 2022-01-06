@@ -39,22 +39,16 @@ std::shared_ptr<AITrader> CreateAndRegister(int id,
                                                double starting_money,
                                                double inv_capacity,
                                                const std::vector<InventoryItem> inv,
+                                               int tick_time_ms,
                                                Log::LogLevel log_level
 ) {
 
-    auto trader = std::make_shared<AITrader>(id, auction_house, std::move(AI_logic), name, starting_money, inv_capacity, inv, log_level);
+    auto trader = std::make_shared<AITrader>(id, auction_house, std::move(AI_logic), name, starting_money, inv_capacity, inv, tick_time_ms,  log_level);
     trader->SendMessage(*Message(id).AddRegisterRequest(std::move(RegisterRequest(trader->id, trader))), auction_house->id);
     trader->TickOnce();
     return trader;
 }
-std::shared_ptr<AITrader> CreateAndRegisterFarmer(int id,
-                                                     const std::vector<InventoryItem>& inv,
-                                                     const std::shared_ptr<AuctionHouse>& auction_house,
-                                                     double starting_money=100.0) {
-    std::shared_ptr<Role> AI_logic;
-    AI_logic = std::make_shared<RoleFarmer>(1);
-    return CreateAndRegister(id, auction_house, AI_logic, "farmer", starting_money, 50, inv, Log::WARN);
-}
+
 
 
 #endif //BAZAAR_BOT_H
