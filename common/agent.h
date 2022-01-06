@@ -20,7 +20,7 @@ public:
     int id;
     int ticks = 0;
     Agent(int agent_id) : id(agent_id) {};
-
+    virtual ~Agent() {};
     void ReceiveMessage(Message incoming_message) {
         inbox.push(incoming_message);
     }
@@ -37,6 +37,7 @@ public:
     Trader(int id, std::string  name)
         : Agent(id)
           , class_name(std::move(name)){};
+    virtual ~Trader() {};
 
     virtual bool HasMoney(double quantity) {return false;};
     virtual bool HasCommodity(const std::string& commodity, int quantity) {return false;};

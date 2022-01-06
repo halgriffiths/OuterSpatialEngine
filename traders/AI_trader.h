@@ -55,6 +55,7 @@ private:
     std::string unique_name;
     
     int TICK_TIME_MS = 10;
+
     int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
     friend Role;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
@@ -72,14 +73,13 @@ private:
     int  external_lookback = 50; //history range (num ticks)
     int internal_lookback = 50; //history range (num trades)
 
-    std::atomic<bool> destroyed = false;
     double IDLE_TAX = 20;
     ConsoleLogger logger;
 
     double money;
 
 public:
-    std::atomic<bool> pending_shutdown = false;
+    std::atomic<bool> destroyed = false;
 
     AITrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, std::optional<std::shared_ptr<Role>> AI_logic, const std::string& class_name, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel verbosity = Log::WARN)
     : Trader(id, class_name)
@@ -97,6 +97,14 @@ public:
             observed_trading_range[item.name] = {base_price*0.5, base_price*2};
             _inventory.SetCost(item.name, base_price);
         }
+    }
+
+    ~AITrader() {
+        logger.Log(Log::DEBUG, "Destroying AI trader", unique_name);
+        ShutdownMessageThread();
+        _inventory.inventory.clear();
+        auction_house.reset();
+        logic.reset();
     }
 
 private:
@@ -163,7 +171,7 @@ void AITrader::FlushOutbox() {
                     res->ReceiveMessage(std::move(outgoing->second));
                 } else {
                     queue_active = false;
-                    pending_shutdown = true;
+                    destroyed = true;
                     return;
                 }
             }
@@ -189,8 +197,11 @@ void AITrader::FlushInbox() {
             ProcessAskResult(*incoming_message);
         } else if (incoming_message->GetType() == Msg::REGISTER_RESPONSE) {
             ProcessRegistrationResponse(*incoming_message);
+        } else if (incoming_message->GetType() == Msg::SHUTDOWN_COMMAND) {
+            destroyed = true;
+            queue_active = false;
         } else {
-            std::cout << "Unknown/unsupported message type " << incoming_message->GetType() << std::endl;
+            logger.Log(Log::ERROR, "Unknown/unsupported message type", unique_name);
         }
         num_processed++;
         incoming_message = inbox.pop();
@@ -328,7 +339,7 @@ void AITrader::UpdatePriceModelFromAsk(const AskResult& result) {
 void AITrader::GenerateOffers(const std::string& commodity) {
     int surplus = _inventory.Surplus(commodity);
     if (surplus >= 1) {
-        logger.Log(Log::DEBUG, "Considering ask for "+commodity + std::string(" - Current surplus = ") + std::to_string(surplus), unique_name);
+//        logger.Log(Log::DEBUG, "Considering ask for "+commodity + std::string(" - Current surplus = ") + std::to_string(surplus), unique_name);
         auto offer = CreateAsk(commodity, 1);
         if (offer.quantity > 0) {
             SendMessage(*Message(id).AddAskOffer(offer), auction_house_id);
@@ -353,7 +364,7 @@ void AITrader::GenerateOffers(const std::string& commodity) {
         if (max_limit > 0)
         {
             int min_limit = (_inventory.Query(commodity) == 0) ? 1 : 0;
-            logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage), unique_name);
+//            logger.Log(Log::DEBUG, "Considering bid for "+commodity + std::string(" - Current shortage = ") + std::to_string(shortage), unique_name);
 
             double desperation = 1;
             double days_savings = money / IDLE_TAX;
@@ -372,7 +383,7 @@ BidOffer AITrader::CreateBid(const std::string& commodity, int min_limit, int ma
     if (res) {
         fair_bid_price = res->AverageHistoricalPrice(commodity, external_lookback);
     } else {
-        pending_shutdown = true;
+        destroyed = true;
         // quantity 0 BidOffers are never sent
         // (Yes this is hacky)
         return BidOffer(id, commodity, 0, -1, 0);
@@ -398,7 +409,7 @@ AskOffer AITrader::CreateAsk(const std::string& commodity, int min_limit) {
     if (res) {
         market_price = res->AverageHistoricalBuyPrice(commodity, external_lookback);
     } else {
-        pending_shutdown = true;
+        destroyed = true;
         // quantity 0 AskOffers are never sent
         // (Yes this is hacky)
         return AskOffer(id, commodity, 0, -1, 0);
@@ -462,17 +473,20 @@ void AITrader::ShutdownMessageThread() {
 void AITrader::Shutdown() {
     auto res = auction_house.lock();
     if (res) {
-        res->ReceiveMessage(*Message(id).AddShutdownNotify({id}));
+        res->ReceiveMessage(*Message(id).AddShutdownNotify({id, class_name, ticks}));
     }
-    ShutdownMessageThread();
-    logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."), unique_name);
-    _inventory.inventory.clear();
-    auction_house.reset();
     destroyed = true;
+    logger.Log(Log::INFO, class_name+std::to_string(id)+std::string(" destroyed."), unique_name);
 }
 
 void AITrader::Tick() {
-    while (!pending_shutdown) {
+    using std::chrono::milliseconds;
+    using std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+    logger.Log(Log::INFO, "Beginning tickloop", unique_name);
+    while (!destroyed) {
+        auto t1 = high_resolution_clock::now();
         if (initialised) {
             if (logic) {
                 logger.Log(Log::DEBUG, "Ticking internal logic", unique_name);
@@ -483,16 +497,21 @@ void AITrader::Tick() {
             }
         }
         if (money <= 0) {
-            pending_shutdown = true;
+            Shutdown();
         }
         if (initialised) {
             ticks++;
+        }
+        std::chrono::duration<double, std::milli> elapsed_ms = std::chrono::high_resolution_clock::now() - t1;
+        int elapsed = elapsed_ms.count();
+        if (elapsed < TICK_TIME_MS) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{TICK_TIME_MS - elapsed});
         }
     }
 }
 
 void AITrader::TickOnce() {
-    if (destroyed || pending_shutdown) {
+    if (destroyed) {
         return;
     }
     if (initialised) {
@@ -505,7 +524,7 @@ void AITrader::TickOnce() {
         }
     }
     if (money <= 0) {
-        pending_shutdown = true;
+        destroyed = true;
         return;
     }
     if (initialised){

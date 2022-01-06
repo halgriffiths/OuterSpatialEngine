@@ -105,7 +105,7 @@ public:
             item.second->open(("tmp/"+item.first + ".dat").c_str(), std::ios::app);
         }
     }
-    void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, std::vector<std::shared_ptr<AITrader>> all_traders, std::map<std::string, int> num_alive) {
+    void CollectMetrics(std::shared_ptr<AuctionHouse> auction_house, int num_alive) {
         auto curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
         double time_passed_ms = (double)(curr_time - start_time) / 1000;
         for (auto& good : tracked_goods) {
@@ -122,16 +122,10 @@ public:
             avg_bids_metrics[good].emplace_back(time_passed_ms, bids);
 
             net_supply_metrics[good].emplace_back(time_passed_ms, asks-bids);
-
-            sample1_metrics[good].emplace_back(time_passed_ms, all_traders[SAMPLE_ID]->Query(good));
-            sample2_metrics[good].emplace_back(time_passed_ms, all_traders[SAMPLE_ID2]->Query(good));
         }
         for (auto& role : tracked_roles) {
-            num_alive_metrics[role].emplace_back(time_passed_ms, num_alive[role]);
+            num_alive_metrics[role].emplace_back(time_passed_ms, num_alive);
         }
-
-        sample1_metrics["money"].emplace_back(time_passed_ms, all_traders[SAMPLE_ID]->QueryMoney());
-        sample2_metrics["money"].emplace_back(time_passed_ms, all_traders[SAMPLE_ID2]->QueryMoney());
 
         curr_tick++;
     }

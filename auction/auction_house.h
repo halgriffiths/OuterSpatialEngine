@@ -8,6 +8,7 @@
 #include <random>
 #include <algorithm>
 #include <utility>
+#include <memory>
 
 #include "../common/history.h"
 
@@ -55,6 +56,15 @@ public:
         , logger(ConsoleLogger(verbosity))
         , message_thread([this] { MessageLoop(); }) { }
 
+    ~AuctionHouse() {
+        logger.Log(Log::DEBUG, "Destroying auction house", unique_name);
+        ShutdownMessageThread();
+        known_traders.clear();
+    }
+    int GetNumTraders() const {
+        return known_traders.size();
+    }
+
     void MessageLoop() {
         while (true) {
             if (!queue_active) {
@@ -67,17 +77,20 @@ public:
     }
 
     void Shutdown(){
-        ShutdownMessageThread();
         destroyed = true;
     }
 
     void ShutdownMessageThread() {
-        logger.Log(Log::INFO, "Shutting down message thread...", unique_name);
         queue_active = false;
         if (message_thread.joinable()) {
             message_thread.join();
         }
         logger.Log(Log::INFO, "Message thread shutdown", unique_name);
+        // Now message thread is gone we can safely send shutdown commands via the main thread
+        auto shutdown_command = Message(id).AddShutdownCommand({id});
+        for (auto& recipient : known_traders) {
+            known_traders[recipient.first]->ReceiveMessage(*shutdown_command);
+        }
     }
 
     void SendDirect(Message outgoing_message, std::shared_ptr<Agent>& recipient) {
@@ -121,7 +134,7 @@ public:
             } else if (incoming_message->GetType() == Msg::SHUTDOWN_NOTIFY){
                 ProcessShutdownNotify(*incoming_message);
             } else {
-                std::cout << "Unknown/unsupported message type " << incoming_message->GetType() << std::endl;
+                logger.Log(Log::ERROR, "Unknown/unsupported message type", unique_name);
             }
             num_processed++;
             incoming_message = inbox.pop();

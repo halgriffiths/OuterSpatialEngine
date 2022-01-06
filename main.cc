@@ -11,8 +11,7 @@
 std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::shared_ptr<AuctionHouse>& auction_house,
                                     std::map<std::string, std::vector<InventoryItem>>& inv,
-                                    std::mt19937& gen) {
-    Log::LogLevel LOGLEVEL = Log::WARN;
+                                    std::mt19937& gen, Log::LogLevel LOGLEVEL = Log::WARN) {
     double STARTING_MONEY = 500.0;
     double MIN_COST = 10;
     std::uniform_real_distribution<> random_money(0.5*STARTING_MONEY, 1.5*STARTING_MONEY); // define the range
@@ -86,74 +85,15 @@ std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std:
     assert(choice != -1);
     return GetProducer(tracked_goods[choice]);
 }
-void AdvanceTicks(int start_tick, int steps, int& max_id,
-                  std::vector<std::string>& tracked_goods,
-                  std::vector<std::string>& tracked_roles,
-                  std::shared_ptr<AuctionHouse>& auction_house,
-                  std::shared_ptr<FakeTrader>& fake_trader,
-                  std::vector<std::shared_ptr<AITrader>>& all_traders,
-                GlobalMetrics& global_metrics,
-                std::mt19937& gen,
-                  std::map<std::string, std::vector<InventoryItem>>& inv) {
-
-    std::map<std::string, int> num_alive;
-    for (int curr_tick = start_tick; curr_tick < start_tick+steps; curr_tick++) {
-        auto t1 = std::chrono::high_resolution_clock::now();
-        for (auto& role : tracked_roles) {
-            num_alive[role] = 0;
-        }
-        fake_trader->Tick();
-        //all_traders[0]->logger.verbosity = Log::INFO;
-        for (int i = 0; i < all_traders.size(); i++) {
-            if (!all_traders[i]->pending_shutdown) {
-                all_traders[i]->TickOnce();
-                num_alive[all_traders[i]->GetClassName()] += 1;
-            } else {
-                all_traders[i]->Shutdown();
-                //trader died, add new trader?
-                global_metrics.TrackDeath(all_traders[i]->GetClassName(), all_traders[i]->ticks);
-                //auto new_job = ChooseNewClassRandom(tracked_roles, gen);
-                auto new_job = ChooseNewClassWeighted(tracked_goods,auction_house, gen);
-                all_traders[i] = MakeAgent(new_job, max_id, auction_house, inv, gen);
-                max_id++;
-            }
-        }
-        //all_traders[0]->PrintState();
-        //auction_house->Tick();
-
-        // collect metrics
-        global_metrics.CollectMetrics(auction_house, all_traders, num_alive);
-        std::chrono::duration<double, std::milli> ms_double = std::chrono::high_resolution_clock::now() - t1;
-        int frametime_ms = ms_double.count();
-        std::cout << "Working frametime for tick " << curr_tick << ": " << frametime_ms << std::endl;
-
-        if (frametime_ms < 10) {
-            std::this_thread::sleep_for(std::chrono::milliseconds{10 - frametime_ms});
-        }
-        ms_double = std::chrono::high_resolution_clock::now() - t1;
-        frametime_ms = ms_double.count();
-        std::cout << "  Final frametime for tick " << curr_tick << ": " << frametime_ms << std::endl;
-    }
-
-}
 
 
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
-    int NUM_TICKS = (animation) ? 2000 : 1000;
+    int TARGET_NUM_TRADERS = 60;
     int DURATION_MS = 10000; //10 second simulation
-    int WINDOW_SIZE = 100;
-    int STEP_SIZE = 1;
-    int STEP_PAUSE_MS = 100;
-    double target_FPS = 2;
+    int TARGET_STEPTIME_MS = 100;
 
-    int target_steptime;
-    if (animation) {
-        target_steptime = 1000/target_FPS;
 
-    } else {
-        target_steptime = 0;
-    }
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::duration;
@@ -215,58 +155,62 @@ void Run(bool animation) {
     }
     std::thread auction_house_thread(&AuctionHouse::Tick, auction_house, DURATION_MS);
     // --- SET UP AI TRADERS ---
-    std::vector<std::shared_ptr<AITrader>> all_traders;
     for (int i = 0; i < NUM_TRADERS_EACH_TYPE; i++) {
         for (auto& role : tracked_roles) {
-            all_traders.push_back(MakeAgent(role, max_id, auction_house, inv, gen));
+            auto new_agent = MakeAgent(role, max_id, auction_house, inv, gen, Log::WARN);
             max_id++;
+            std::thread new_agent_thread(&AITrader::Tick, new_agent);
+            new_agent_thread.detach();
         }
     }
 
-    // --- SET UP FAKE TRADER ---
-    auto fake_trader = std::make_shared<FakeTrader>(max_id, auction_house);
-    {
-        fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
-        fake_trader->Tick();
-        //fake_trader->RegisterShortage("fertilizer", 3, 620, 50);
-        //fake_trader->RegisterSurplus("fertilizer", -0.9, 220, 50);
-        max_id++;
-    }
-
-
+//    // --- SET UP FAKE TRADER ---
+//    auto fake_trader = std::make_shared<FakeTrader>(max_id, auction_house);
+//    {
+//        fake_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, fake_trader))), auction_house->id);
+//        fake_trader->Tick();
+//        //fake_trader->RegisterShortage("fertilizer", 3, 620, 50);
+//        //fake_trader->RegisterSurplus("fertilizer", -0.9, 220, 50);
+//        max_id++;
+//    }
 
     // --- MAIN LOOP ---
     std::cout << std::fixed;
     std::cout << std::setprecision(2);
-    auto t1 = high_resolution_clock::now();
-    for (int curr_tick = 0; curr_tick < NUM_TICKS; curr_tick += STEP_SIZE) {
-        t1 = high_resolution_clock::now();
-        AdvanceTicks(curr_tick, STEP_SIZE, max_id,
-                tracked_goods,
-                tracked_roles,
-                auction_house,
-                fake_trader,
-                all_traders,
-                global_metrics,
-                 gen,
-                 inv);
-        if (animation && curr_tick > WINDOW_SIZE) {
-            global_metrics.update_datafiles();
-            display_plot(global_metrics, WINDOW_SIZE);
+    int elapsed = 0;
+    int curr_tick = 0;
+    while (elapsed < DURATION_MS) {
+        curr_tick++;
+        auto t1 = std::chrono::high_resolution_clock::now();
+        int num_traders = auction_house->GetNumTraders();
+        if (num_traders < TARGET_NUM_TRADERS) {
+            for (int i = 0; i < TARGET_NUM_TRADERS- num_traders; i++) {
+                auto new_role = ChooseNewClassWeighted(tracked_goods, auction_house, gen);
+                auto new_agent = MakeAgent(new_role, max_id, auction_house, inv, gen);
+                max_id++;
+                std::thread new_agent_thread(&AITrader::Tick, new_agent);
+                new_agent_thread.detach();
+            }
         }
+        global_metrics.CollectMetrics(auction_house, num_traders);
+        std::chrono::duration<double, std::milli> ms_double = std::chrono::high_resolution_clock::now() - t1;
+        int working_frametime_ms = ms_double.count();
 
-        duration<double, std::milli> ms_double = high_resolution_clock::now() - t1;
-        int steptime = ms_double.count();
-        std::cout << "steptime for ticks " << curr_tick << "-" << curr_tick+STEP_SIZE << ": " << steptime << "ms\n";
-        if (animation && curr_tick > WINDOW_SIZE && steptime < target_steptime) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(target_steptime-steptime));
+        if (working_frametime_ms < TARGET_STEPTIME_MS) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{TARGET_STEPTIME_MS - working_frametime_ms});
         }
+        ms_double = std::chrono::high_resolution_clock::now() - t1;
+        int frametime_ms = ms_double.count();
+        std::cout << "  Working/Final frametime for tick " << curr_tick << ": " << working_frametime_ms << "/" << frametime_ms << std::endl;
+        elapsed += frametime_ms;
+//        {
+//            if (animation && curr_tick > WINDOW_SIZE) {
+//                global_metrics.update_datafiles();
+//                display_plot(global_metrics, WINDOW_SIZE);
+//            }
+//        }
     }
-
-
-    for (int i = 0; i < all_traders.size(); i++) {
-        all_traders[i]->Shutdown();
-    }
+    std::cout << "Manually shutdown AH" << std::endl;
     auction_house->Shutdown();
     auction_house_thread.join();
     //Plot final results
@@ -276,10 +220,10 @@ void Run(bool animation) {
     }
     std::cout << std::endl;
     for (auto& good : tracked_goods) {
-        double price = auction_house->AverageHistoricalPrice(good, NUM_TICKS);
+        double price = auction_house->AverageHistoricalPrice(good, 10);
 
         std::cout << "\t\t$" << price;
-        double pc_change = auction_house->history.prices.percentage_change(good, NUM_TICKS);
+        double pc_change = auction_house->history.prices.percentage_change(good, 10);
         if (pc_change < 0) {
             //▼
             std::cout << "\033[1;31m(▼" << pc_change << "%)\033[0m";
@@ -296,11 +240,9 @@ void Run(bool animation) {
         std::cout << role << ": " << global_metrics.age_per_class[role] << "(" <<global_metrics.deaths_per_class[role] <<" total)" << std::endl;
     }
     int survivor_age = 0;
-    for (auto& survivor : all_traders){
-        survivor_age += survivor->ticks;
-    }
-    std::cout << "Survivor avg age: " << survivor_age / all_traders.size() << std::endl;
-    std::cout << "Avg auction house profit :" << auction_house->spread_profit / NUM_TICKS;
+    std::cout << "Total auction house profit :" << auction_house->spread_profit << std::endl;;
+    auction_house.reset();
+    std::cout << "Finished" << std::endl;
 }
 
 // ---------------- MAIN ----------

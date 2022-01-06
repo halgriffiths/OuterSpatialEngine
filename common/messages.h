@@ -21,7 +21,8 @@ namespace Msg {
         ASK_OFFER,
         BID_RESULT,
         ASK_RESULT,
-        SHUTDOWN_NOTIFY
+        SHUTDOWN_NOTIFY,
+        SHUTDOWN_COMMAND
     };
 }
 
@@ -245,10 +246,22 @@ bool operator< (const AskResult& a, const AskResult& b) {
 
 struct ShutdownNotify {
     int sender_id;
-    bool accepted;
-    std::optional<std::string> rejection_reason;
 
-    ShutdownNotify(int sender_id)
+    std::string class_name;
+    int age_at_death;
+    ShutdownNotify(int sender_id, std::string class_name, int age_at_death)
+            : sender_id(sender_id)
+            , class_name(class_name)
+            , age_at_death(age_at_death) {};
+
+    std::string ToString() {
+        return std::string("Shutdown notification received");
+    }
+};
+
+struct ShutdownCommand {
+    int sender_id;
+    ShutdownCommand(int sender_id)
             : sender_id(sender_id) {};
 
     std::string ToString() {
@@ -267,6 +280,7 @@ public:
     std::optional<BidResult> bid_result = std::nullopt;
     std::optional<AskResult> ask_result = std::nullopt;
     std::optional<ShutdownNotify> shutdown_notify = std::nullopt;
+    std::optional<ShutdownCommand> shutdown_command = std::nullopt;
 
     Message(int sender_id)
         : sender_id(sender_id)
@@ -332,6 +346,14 @@ public:
         shutdown_notify = std::move(msg);
         return this;
     }
+    Message* AddShutdownCommand(ShutdownCommand msg) {
+        if (type != Msg::EMPTY) {
+            return this; //disallow multiple messages
+        }
+        type = Msg::SHUTDOWN_COMMAND;
+        shutdown_command = std::move(msg);
+        return this;
+    }
 
     std::string ToString() {
         if (type == Msg::EMPTY) {
@@ -350,6 +372,8 @@ public:
             return ask_result->ToString();
         } else if (type == Msg::SHUTDOWN_NOTIFY) {
             return shutdown_notify->ToString();
+        } else if (type == Msg::SHUTDOWN_COMMAND) {
+            return shutdown_command->ToString();
         } else {
             return "ERR: unknown message type";
         }
