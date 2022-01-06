@@ -89,11 +89,11 @@ std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std:
 void Run(bool animation) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int TARGET_NUM_TRADERS = 120;
-    int DURATION_MS = 600000; //10 second simulation
+    int DURATION_MS = 60000; //60 second simulation
 
     int TARGET_STEPTIME_MS = 10;
-    int TARGET_ANIMATION_FPS = 5;
-
+    int TARGET_ANIMATION_MS = 200;
+    int writes_per_animation = 4;
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
@@ -109,7 +109,7 @@ void Run(bool animation) {
     auto file_mutex = std::make_shared<std::mutex>();
     auto metrics_start_time = to_unix_timestamp_ms(std::chrono::high_resolution_clock::now());
     auto global_metrics = GlobalMetrics(metrics_start_time, tracked_goods, tracked_roles, file_mutex);
-    auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_FPS, file_mutex, tracked_goods);
+    auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
     // --- SET UP DEFAULT COMMODITIES ---
     std::map<std::string, Commodity> comm;
     {
@@ -151,7 +151,7 @@ void Run(bool animation) {
 
     // --- SET UP AUCTION HOUSE ---
     int max_id = 0;
-    auto auction_house = std::make_shared<AuctionHouse>(max_id, Log::WARN);
+    auto auction_house = std::make_shared<AuctionHouse>(max_id, Log::ERROR);
     max_id++;
     for (auto& item : comm) {
         auction_house->RegisterCommodity(item.second);
@@ -160,7 +160,7 @@ void Run(bool animation) {
     // --- SET UP AI TRADERS ---
     for (int i = 0; i < NUM_TRADERS_EACH_TYPE; i++) {
         for (auto& role : tracked_roles) {
-            auto new_agent = MakeAgent(role, max_id, auction_house, inv, gen, Log::WARN);
+            auto new_agent = MakeAgent(role, max_id, auction_house, inv, gen, Log::ERROR);
             max_id++;
             std::thread new_agent_thread(&AITrader::Tick, new_agent);
             new_agent_thread.detach();
@@ -182,9 +182,11 @@ void Run(bool animation) {
     std::cout << std::setprecision(2);
     int elapsed = 0;
     int curr_tick = 0;
+    int prev_write_time = 0;
+    int write_step = (int) TARGET_ANIMATION_MS / writes_per_animation ;
     while (elapsed < DURATION_MS) {
-        curr_tick++;
         auto t1 = std::chrono::high_resolution_clock::now();
+        curr_tick++;
         int num_traders = auction_house->GetNumTraders();
         if (num_traders < TARGET_NUM_TRADERS) {
             for (int i = 0; i < TARGET_NUM_TRADERS- num_traders; i++) {
@@ -195,7 +197,10 @@ void Run(bool animation) {
                 new_agent_thread.detach();
             }
         }
-        global_metrics.update_datafiles();
+        if (elapsed > prev_write_time + write_step) {
+            global_metrics.update_datafiles(prev_write_time);
+            prev_write_time = elapsed;
+        }
         global_metrics.CollectMetrics(auction_house, num_traders);
         std::chrono::duration<double, std::milli> ms_double = std::chrono::high_resolution_clock::now() - t1;
         int working_frametime_ms = (int) ms_double.count();

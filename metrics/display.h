@@ -44,10 +44,11 @@ private:
     std::thread chart_thread;
 public:
     std::atomic_bool destroyed = false;
+    std::atomic_bool active = true;
 
-    UserDisplay(std::uint64_t start_time, int FPS, std::shared_ptr<std::mutex> mutex, const std::vector<std::string>& tracked_goods)
+    UserDisplay(std::uint64_t start_time, double chart_update_ms, std::shared_ptr<std::mutex> mutex, const std::vector<std::string>& tracked_goods)
             : start_time(start_time)
-            , chart_update_ms(ceil(1000/FPS))
+            , chart_update_ms(chart_update_ms)
             , file_mutex(std::move(mutex))
             , tracked_goods(tracked_goods)
             , chart_thread([this] { Tick(); }) {

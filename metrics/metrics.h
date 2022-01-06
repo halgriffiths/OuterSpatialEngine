@@ -96,36 +96,49 @@ public:
         }
         file_mutex->unlock();
     }
-    void update_datafiles() {
+    void update_datafiles(std::uint64_t stop_time) {
         file_mutex->lock();
         for (auto& item : data_files) {
             item.second->close();
             item.second->open(("tmp/"+item.first + ".dat").c_str(), std::ios::app);
+            int num = 0;
+            double total_value = 0;
+            double total_time_s = 0;
+            auto it = avg_price_metrics.at(item.first).rbegin();
+            while (it != avg_price_metrics.at(item.first).rend() && it->first >= stop_time/1000) {
+                total_value += it->second;
+                total_time_s += it->first;
+                num++;
+                it++;
+            }
+            if (num > 0) {
+                double avg_value = total_value/num;
+                double avg_time = total_time_s/num;
+                *(item.second.get()) << avg_time << " " << avg_value << "\n";
+            }
         }
         file_mutex->unlock();
     }
     void CollectMetrics(const std::shared_ptr<AuctionHouse>& auction_house, int num_alive) {
         auto local_curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
-        double time_passed_ms = (double)(local_curr_time - offset - start_time) / 1000;
+        double time_passed_s = (double)(local_curr_time - offset - start_time) / 1000;
         for (auto& good : tracked_goods) {
             double price = auction_house->MostRecentPrice(good);
             double asks = auction_house->AverageHistoricalAsks(good, lookback);
             double bids = auction_house->AverageHistoricalBids(good, lookback);
             double trades = auction_house->AverageHistoricalTrades(good, lookback);
 
-            file_mutex->lock();
-            *(data_files[good].get()) << time_passed_ms << " " << price << "\n";
-            file_mutex->unlock();
 
-            avg_price_metrics[good].emplace_back(time_passed_ms, price);
-            avg_trades_metrics[good].emplace_back(time_passed_ms, trades);
-            avg_asks_metrics[good].emplace_back(time_passed_ms, asks);
-            avg_bids_metrics[good].emplace_back(time_passed_ms, bids);
 
-            net_supply_metrics[good].emplace_back(time_passed_ms, asks-bids);
+            avg_price_metrics[good].emplace_back(time_passed_s, price);
+            avg_trades_metrics[good].emplace_back(time_passed_s, trades);
+            avg_asks_metrics[good].emplace_back(time_passed_s, asks);
+            avg_bids_metrics[good].emplace_back(time_passed_s, bids);
+
+            net_supply_metrics[good].emplace_back(time_passed_s, asks-bids);
         }
         for (auto& role : tracked_roles) {
-            num_alive_metrics[role].emplace_back(time_passed_ms, num_alive);
+            num_alive_metrics[role].emplace_back(time_passed_s, num_alive);
         }
 
         curr_tick++;
