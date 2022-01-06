@@ -93,7 +93,7 @@ void Run(bool animation) {
 
     int TARGET_STEPTIME_MS = 10;
     int TARGET_ANIMATION_MS = 200;
-    int writes_per_animation = 4;
+    int writes_per_animation = 10;
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;

@@ -483,6 +483,8 @@ void AITrader::Tick() {
     using std::chrono::milliseconds;
     using std::chrono::duration;
     using std::chrono::duration_cast;
+    //Stagger starts
+    std::this_thread::sleep_for(std::chrono::milliseconds{std::uniform_int_distribution<>(0, TICK_TIME_MS)(rng_gen)});
     logger.Log(Log::INFO, "Beginning tickloop", unique_name);
     while (!destroyed) {
         auto t1 = std::chrono::high_resolution_clock::now();
