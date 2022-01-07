@@ -158,15 +158,15 @@ public:
 };
 
 void AITrader::FlushOutbox() {
-        logger.Log(Log::DEBUG, "Flushing outbox");
+        //logger.Log(Log::DEBUG, "Flushing outbox");
         auto outgoing = outbox.pop();
         int num_processed = 0;
         while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             // Trader can currently only talk to auction houses (not other traders)
             if (outgoing->first != auction_house_id) {
-                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
+                //logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
             } else {
-                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
+                //logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
                 auto res = auction_house.lock();
                 if (res) {
                     res->ReceiveMessage(std::move(outgoing->second));
@@ -180,12 +180,12 @@ void AITrader::FlushOutbox() {
             outgoing = outbox.pop();
         }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        logger.Log(Log::WARN, "Outbox not fully flushed");
+        //logger.Log(Log::WARN, "Outbox not fully flushed");
     }
-    logger.Log(Log::DEBUG, "Flush finished");
+    //logger.Log(Log::DEBUG, "Flush finished");
 }
 void AITrader::FlushInbox() {
-    logger.Log(Log::DEBUG, "Flushing inbox");
+    //logger.Log(Log::DEBUG, "Flushing inbox");
     auto incoming_message = inbox.pop();
     int num_processed = 0;
     while (incoming_message && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
@@ -208,9 +208,9 @@ void AITrader::FlushInbox() {
         incoming_message = inbox.pop();
     }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        logger.Log(Log::WARN, "Inbox not fully flushed");
+        //logger.Log(Log::WARN, "Inbox not fully flushed");
     }
-    logger.Log(Log::DEBUG, "Flush finished");
+    //logger.Log(Log::DEBUG, "Flush finished");
 }
 void AITrader::ProcessAskResult(Message& message) {
     UpdatePriceModelFromAsk(*message.ask_result);
