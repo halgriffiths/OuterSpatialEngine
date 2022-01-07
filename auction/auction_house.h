@@ -51,7 +51,7 @@ private:
 
     std::map<std::string, std::vector<std::pair<BidOffer, BidResult>>> bid_book = {};
     std::map<std::string, std::vector<std::pair<AskOffer, AskResult>>> ask_book = {};
-    Logger logger;
+    FileLogger logger;
 
 public:
     double spread_profit = 0;

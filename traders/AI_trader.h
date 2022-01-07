@@ -74,7 +74,7 @@ private:
     int internal_lookback = 50; //history range (num trades)
 
     double IDLE_TAX = 20;
-    Logger logger;
+    FileLogger logger;
 
     double money;
 
@@ -87,7 +87,7 @@ public:
     , logic(std::move(AI_logic))
     , money(starting_money)
     , unique_name(class_name + std::to_string(id))
-    , logger(ConsoleLogger(verbosity, unique_name))
+    , logger(FileLogger(verbosity, unique_name))
     , message_thread([this] { MessageLoop(); })
     , TICK_TIME_MS(tick_time_ms) {
         //construct inv

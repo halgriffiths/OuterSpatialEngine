@@ -32,7 +32,7 @@ public:
         : verbosity(verbosity)
         , name(name) {};
 
-    virtual void LogInternal(std::string raw_message) const {return;};
+    virtual void LogInternal(std::string raw_message) const = 0;
     void LogSent(int to, Log::LogLevel level, std::string message) const {
         if (level > verbosity) {
             return;
@@ -95,7 +95,8 @@ class FileLogger : public Logger {
 public:
     FileLogger(Log::LogLevel verbosity, std::string name)
         : Logger(verbosity, name) {
-        log_file = std::fopen (("tmp/" + name + "_log").c_str(), "w");
+        log_file = std::fopen (("logs/" + name + "_log.txt").c_str(), "w");
+        std::fwrite("# Log file\n", 1, 12, log_file);
     };
 
     ~FileLogger() {
