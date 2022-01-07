@@ -39,6 +39,8 @@ public:
     std::map<std::string, double> age_per_class;
     std::map<std::string, std::vector<std::pair<double, double>>> avg_price_metrics;
 
+    double avg_lifespan = 0;
+
 private:
     std::shared_ptr<std::mutex> file_mutex;
     std::map<std::string, std::tuple<std::string, std::string>> hardcoded_legend;
@@ -137,8 +139,12 @@ public:
 
             net_supply_metrics[good].emplace_back(time_passed_s, asks-bids);
         }
+
+        auto res = auction_house->GetDemographics();
+        avg_lifespan = res.first;
+        auto demographics = res.second;
         for (auto& role : tracked_roles) {
-            num_alive_metrics[role].emplace_back(time_passed_s, num_alive);
+            num_alive_metrics[role].emplace_back(time_passed_s, demographics[role]);
         }
 
         curr_tick++;

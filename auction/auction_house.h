@@ -28,6 +28,10 @@ public:
     
     std::string unique_name;
 private:
+    // debug info
+    int num_deaths;
+    int total_age;
+
     int TICK_TIME_MS = 10; //ms
     std::atomic<bool> queue_active = true;
     std::thread message_thread;
@@ -43,6 +47,7 @@ private:
 //    std::mt19937 rng_gen = std::mt19937(std::random_device()());
     std::map<std::string, Commodity> known_commodities;
     std::map<int, std::shared_ptr<Trader>> known_traders;  //key = trader-id
+    std::map<std::string, int> demographics = {};
 
     std::map<std::string, std::vector<std::pair<BidOffer, BidResult>>> bid_book = {};
     std::map<std::string, std::vector<std::pair<AskOffer, AskResult>>> ask_book = {};
@@ -63,6 +68,10 @@ public:
     }
     int GetNumTraders() const {
         return (int) known_traders.size();
+    }
+
+    std::pair<double, std::map<std::string, int>> GetDemographics() const {
+        return {(num_deaths > 0) ? total_age / num_deaths : 0, demographics};
     }
 
     void MessageLoop() {
@@ -196,12 +205,21 @@ public:
             logger.Log(Log::ERROR, "Failed to convert weak_ptr to shared, unable to reply to reg request from "+std::to_string(requested_id), unique_name);
             return;
         }
+        auto type = res->class_name;
+        if (demographics.count(type) != 1) {
+            demographics[res->class_name] = 1;
+        } else {
+            demographics[res->class_name] += 1;
+        }
         known_traders[requested_id] = std::move(res);
         auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
         SendMessage(*msg, requested_id);
     }
     void ProcessShutdownNotify(Message& message) {
-        logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id), unique_name);
+        demographics[message.shutdown_notify->class_name] -= 1;
+        num_deaths += 1;
+        total_age += message.shutdown_notify->age_at_death;
+        logger.Log(Log::INFO, "Deregistered trader "+std::to_string(message.sender_id));
         known_traders.erase(message.sender_id);
     }
 

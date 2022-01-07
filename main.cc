@@ -11,7 +11,7 @@
 std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::shared_ptr<AuctionHouse>& auction_house,
                                     std::map<std::string, std::vector<InventoryItem>>& inv,
-                                    std::mt19937& gen, int tick_time_ms, Log::LogLevel LOGLEVEL = Log::WARN) {
+                                    std::mt19937& gen, int tick_time_ms, Log::LogLevel LOGLEVEL) {
     double STARTING_MONEY = 500.0;
     double MIN_COST = 10;
     std::uniform_real_distribution<> random_money(0.5*STARTING_MONEY, 1.5*STARTING_MONEY); // define the range
@@ -75,27 +75,36 @@ std::string GetProducer(std::string& commodity) {
 std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std::shared_ptr<AuctionHouse>& auction_house, std::mt19937& gen) {
     std::vector<double> weights;
     double gamma = -0.02;
-    int lookback = 100;
+    //auction house ticks at 10ms
+    int lookback_time_ms = 1000;
     for (auto& commodity : tracked_goods) {
-        double asks = auction_house->AverageHistoricalAsks(commodity, lookback);
-        double bids = auction_house->AverageHistoricalBids(commodity, lookback);
-        weights.push_back(std::exp(gamma*(asks-bids)));
+        double supply = auction_house->t_AverageHistoricalSupply(commodity, lookback_time_ms);
+//        double supply = auction_house->AverageHistoricalAsks(commodity, 100) - auction_house->AverageHistoricalBids(commodity, 100);
+        weights.push_back(std::exp(gamma*supply));
     }
     int choice = RandomChoice((int) weights.size(),  weights, gen);
     assert(choice != -1);
     return GetProducer(tracked_goods[choice]);
 }
 
-void Run(double trader_tps) {
+void Run(double duration_s, double animation_fps, double trader_tps) {
     int NUM_TRADERS_EACH_TYPE = 10;
     int TARGET_NUM_TRADERS = 120;
-    int DURATION_MS = 60000; //60 second simulation
+    int DURATION_MS = (int) duration_s*1000; //60 second simulation
 
     int TRADER_TICK_TIME_MS = 1000/trader_tps;
 
     int TARGET_STEPTIME_MS = 10;
-    int TARGET_ANIMATION_MS = 200;
+    int TARGET_ANIMATION_MS;
+    if (animation_fps > 0) {
+        TARGET_ANIMATION_MS = 1000/animation_fps;
+    } else {
+        TARGET_ANIMATION_MS = 1000;
+    }
     int writes_per_animation = 10;
+
+    auto trader_log_level = Log::WARN;
+    auto AH_log_level = Log::DEBUG;
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
@@ -112,6 +121,9 @@ void Run(double trader_tps) {
     auto metrics_start_time = to_unix_timestamp_ms(std::chrono::high_resolution_clock::now());
     auto global_metrics = GlobalMetrics(metrics_start_time, tracked_goods, tracked_roles, file_mutex);
     auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
+    if (animation_fps <= 0) {
+        user_display.active = false;
+    }
     // --- SET UP DEFAULT COMMODITIES ---
     std::map<std::string, Commodity> comm;
     {
@@ -153,7 +165,7 @@ void Run(double trader_tps) {
 
     // --- SET UP AUCTION HOUSE ---
     int max_id = 0;
-    auto auction_house = std::make_shared<AuctionHouse>(max_id, Log::ERROR);
+    auto auction_house = std::make_shared<AuctionHouse>(max_id, AH_log_level);
     max_id++;
     for (auto& item : comm) {
         auction_house->RegisterCommodity(item.second);
@@ -162,13 +174,18 @@ void Run(double trader_tps) {
     // --- SET UP AI TRADERS ---
     for (int i = 0; i < NUM_TRADERS_EACH_TYPE; i++) {
         for (auto& role : tracked_roles) {
-            auto new_agent = MakeAgent(role, max_id, auction_house, inv, gen, TRADER_TICK_TIME_MS, Log::ERROR);
+            auto new_agent = MakeAgent(role, max_id, auction_house, inv, gen, TRADER_TICK_TIME_MS, trader_log_level);
             max_id++;
             std::thread new_agent_thread(&AITrader::Tick, new_agent);
             new_agent_thread.detach();
         }
     }
-
+    for (int i = 0; i < 20; i++) {
+        auto new_composter = MakeAgent("composter", max_id, auction_house, inv, gen, TRADER_TICK_TIME_MS, trader_log_level);
+        max_id++;
+        std::thread new_composter_thread(&AITrader::Tick, new_composter);
+        new_composter_thread.detach();
+    }
 //    // --- SET UP FAKE TRADER ---
 //    auto fake_trader = std::make_shared<FakeTrader>(max_id, auction_house);
 //    {
@@ -193,7 +210,7 @@ void Run(double trader_tps) {
         if (num_traders < TARGET_NUM_TRADERS) {
             for (int i = 0; i < TARGET_NUM_TRADERS- num_traders; i++) {
                 auto new_role = ChooseNewClassWeighted(tracked_goods, auction_house, gen);
-                auto new_agent = MakeAgent(new_role, max_id, auction_house, inv, gen, TRADER_TICK_TIME_MS);
+                auto new_agent = MakeAgent(new_role, max_id, auction_house, inv, gen, TRADER_TICK_TIME_MS, trader_log_level);
                 max_id++;
                 std::thread new_agent_thread(&AITrader::Tick, new_agent);
                 new_agent_thread.detach();
@@ -249,10 +266,10 @@ void Run(double trader_tps) {
         }
     }
 
-    std::cout << "\nAverage age on death: " << global_metrics.avg_overall_age << std::endl;
-    for (auto& role : tracked_roles) {
-        std::cout << role << ": " << global_metrics.age_per_class[role] << "(" <<global_metrics.deaths_per_class[role] <<" total)" << std::endl;
-    }
+    std::cout << "\nAverage age on death: " << global_metrics.avg_lifespan << std::endl;
+//    for (auto& role : tracked_roles) {
+//        std::cout << role << ": " << global_metrics.age_per_class[role] << "(" <<global_metrics.deaths_per_class[role] <<" total)" << std::endl;
+//    }
 
     std::cout << "Total auction house profit :" << auction_house->spread_profit << std::endl;
     auction_house.reset();
@@ -261,8 +278,9 @@ void Run(double trader_tps) {
 
 // ---------------- MAIN ----------
 int main(int argc, char *argv[]) {
-
-    double trader_tps = (argc > 1) ? std::stod(std::string(argv[1])) : 2;
-    Run(trader_tps);
+    double duration_s = (argc > 1) ? std::stod(std::string(argv[1])) : 10;
+    double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 0;
+    double trader_tps = (argc > 3) ? std::stod(std::string(argv[3])) : 2;
+    Run(duration_s, animation_fps, trader_tps);
     return 0;
 }
