@@ -262,7 +262,23 @@ public:
         return history.asks.average(commodity, window);
     }
     double AverageHistoricalBids(const std::string& commodity, int window) const {
-        return history.bids.average(commodity, window);
+        if (window == 1) {
+            return history.bids.most_recent.at(commodity);
+        }return history.bids.average(commodity, window);
+    }
+
+    double t_AverageHistoricalAsks(const std::string& commodity, int window) const {
+        return history.asks.t_average(commodity, window);
+    }
+    double t_AverageHistoricalBids(const std::string& commodity, int window) const {
+        return history.bids.t_average(commodity, window);
+    }
+
+    double AverageHistoricalSupply(const std::string& commodity, int window) const {
+        return history.net_supply.average(commodity, window);
+    }
+    double t_AverageHistoricalSupply(const std::string& commodity, int window) const {
+        return history.net_supply.t_average(commodity, window);
     }
     int NumKnownTraders() const {
         return (int) known_traders.size();
@@ -580,6 +596,7 @@ private:
         // update history
         history.asks.add(commodity, supply);
         history.bids.add(commodity, demand);
+        history.net_supply.add(commodity, supply-demand);
         history.trades.add(commodity, num_trades_this_tick);
 
         if (units_traded_this_tick > 0) {

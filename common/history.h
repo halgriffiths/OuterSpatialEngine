@@ -12,7 +12,8 @@ enum LogType {
     PRICE,
     ASK,
     BID,
-    TRADE
+    TRADE,
+    NET_SUPPLY
 };
 
 class HistoryLog {
@@ -62,10 +63,11 @@ public:
         return total/range;
     }
     // time-based average
-    double t_average(const std::string& name, std::int64_t start_time) const {
+    double t_average(const std::string& name, std::int64_t duration) const {
         if (log.count(name) != 1) {
             return 0;// no entry found
         }
+        auto start_time = log.at(name).back().second - duration;
         double total = 0;
         int range = 0;
         auto it = log.at(name).rbegin();
@@ -125,6 +127,7 @@ public:
     HistoryLog buy_prices;
     HistoryLog asks;
     HistoryLog bids;
+    HistoryLog net_supply;
     HistoryLog trades;
 
     History()
@@ -132,7 +135,9 @@ public:
         , buy_prices(HistoryLog(PRICE))
         , asks(HistoryLog(ASK))
         , bids(HistoryLog(BID))
-        , trades(HistoryLog(TRADE)) {};
+        , trades(HistoryLog(TRADE))
+        , net_supply(HistoryLog(NET_SUPPLY)) { };
+
 
     void initialise(const std::string& name) {
         prices.initialise(name);
@@ -140,6 +145,7 @@ public:
         asks.initialise(name);
         bids.initialise(name);
         trades.initialise(name);
+        net_supply.initialise(name);
     }
 };
 
