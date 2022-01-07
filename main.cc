@@ -104,7 +104,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     int writes_per_animation = 10;
 
     auto trader_log_level = Log::WARN;
-    auto AH_log_level = Log::DEBUG;
+    auto AH_log_level = Log::WARN;
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
