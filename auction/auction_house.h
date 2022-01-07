@@ -51,14 +51,14 @@ private:
 
     std::map<std::string, std::vector<std::pair<BidOffer, BidResult>>> bid_book = {};
     std::map<std::string, std::vector<std::pair<AskOffer, AskResult>>> ask_book = {};
-    ConsoleLogger logger;
+    Logger logger;
 
 public:
     double spread_profit = 0;
     AuctionHouse(int auction_house_id, Log::LogLevel verbosity)
         : Agent(auction_house_id)
         , unique_name(std::string("AH")+std::to_string(id))
-        , logger(ConsoleLogger(verbosity, unique_name))
+        , logger(FileLogger(verbosity, unique_name))
         , message_thread([this] { MessageLoop(); }) { }
 
     ~AuctionHouse() override {
