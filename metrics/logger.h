@@ -1,12 +1,16 @@
-#include <utility>
-#include "gnuplot-iostream.h"
-#include <iomanip>
+
 //
 // Created by henry on 06/12/2021.
 //
 
 #ifndef CPPBAZAARBOT_LOGGER_H
 #define CPPBAZAARBOT_LOGGER_H
+
+#include <utility>
+#include "gnuplot-iostream.h"
+#include <iomanip>
+#include <iostream>
+#include <ostream>
 
 namespace Log{
     enum LogLevel {
@@ -20,27 +24,16 @@ namespace Log{
 
 // Base class makes no logs
 class Logger {
+protected:
+    std::string name;
 public:
-
-    Logger(Log::LogLevel verbosity = Log::ERROR) : verbosity(verbosity) {};
+    const Log::LogLevel verbosity;
+    Logger(Log::LogLevel verbosity, std::string name)
+        : verbosity(verbosity)
+        , name(name) {};
 
     virtual void LogInternal(std::string raw_message) const {return;};
-    virtual void LogSent(int to,Log::LogLevel level, std::string message, std::string& name) const {return;};
-    virtual void LogReceived(int from,Log::LogLevel level, std::string message, std::string& name) const {return;};
-    virtual void Log(Log::LogLevel level, std::string message, std::string& name) const {return;};
-    const Log::LogLevel verbosity;
-};
-
-class ConsoleLogger : public Logger {
-public:
-    ConsoleLogger(Log::LogLevel verbosity)
-        : Logger(verbosity) {};
-
-    void LogInternal(std::string raw_message) const override {
-        std::cout << raw_message << std::endl;
-    }
-
-    void LogSent(int to, Log::LogLevel level, std::string message, std::string& name) const override {
+    void LogSent(int to, Log::LogLevel level, std::string message) const {
         if (level > verbosity) {
             return;
         }
@@ -49,7 +42,7 @@ public:
         LogInternal(std::string(header_string) + message);
     }
 
-    void LogReceived(int from, Log::LogLevel level, std::string message, std::string& name) const override {
+    void LogReceived(int from, Log::LogLevel level, std::string message) const {
         if (level > verbosity) {
             return;
         }
@@ -58,7 +51,7 @@ public:
         LogInternal(std::string(header_string) + message);
     }
 
-    void Log(Log::LogLevel level, std::string message, std::string& name) const override {
+    void Log(Log::LogLevel level, std::string message) const {
         if (level > verbosity) {
             return;
         }
@@ -66,6 +59,8 @@ public:
         snprintf(header_string, 100, "[%s] %s: ",LogLevelToCString(level), name.c_str());
         LogInternal(std::string(header_string) + message);
     }
+
+
 private:
     const char* LogLevelToCString(Log::LogLevel level) const {
         const char* level_name;
@@ -84,5 +79,32 @@ private:
     }
 };
 
+class ConsoleLogger : public Logger {
+public:
+    ConsoleLogger(Log::LogLevel verbosity, std::string name)
+        : Logger(verbosity, name) {};
+
+    void LogInternal(std::string raw_message) const override {
+        raw_message += "\n";
+        std::fwrite(raw_message.c_str(), 1, raw_message.size()+1, stdout);
+    }
+};
+
+class FileLogger : public Logger {
+    FILE * log_file;
+public:
+    FileLogger(Log::LogLevel verbosity, std::string name)
+        : Logger(verbosity, name) {
+        log_file = std::fopen (("tmp/" + name + "_log").c_str(), "w");
+    };
+
+    ~FileLogger() {
+      std::fclose(log_file);
+    }
+    void LogInternal(std::string raw_message) const override {
+        raw_message += "\n";
+        std::fwrite(raw_message.c_str(), 1, raw_message.size()+1, log_file);
+    }
+};
 
 #endif//CPPBAZAARBOT_LOGGER_H
