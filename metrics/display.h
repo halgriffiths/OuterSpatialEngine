@@ -15,6 +15,14 @@
 #include <utility>
 #endif // Windows/Linux
 
+#include <cstdio>
+#include <cstdlib>
+#include <clocale>
+#include <notcurses/notcurses.h>
+#include <chrono>
+#include <thread>
+#include <iostream>
+
 void get_terminal_size(int& width, int& height) {
 #if defined(_WIN32)
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -73,6 +81,8 @@ public:
         file_mutex.reset();
     }
     void Tick() {
+        display_main();
+        return;
         int working_frametime_ms;
         std::chrono::duration<double, std::milli> ms_double;
         auto t1 = std::chrono::high_resolution_clock::now();
@@ -80,7 +90,7 @@ public:
             t1 = std::chrono::high_resolution_clock::now();
 
             if (active) {
-                DrawChart();
+                std::cout << DrawChart() << std::endl;
             }
 
             ms_double = std::chrono::high_resolution_clock::now() - t1;
@@ -94,7 +104,7 @@ public:
         std::cout << "Closing display" << std::endl;
     }
 
-    void DrawChart() {
+    std::string DrawChart() {
         int x = 100;
         int y = 100;
         get_terminal_size(x, y);
@@ -125,7 +135,122 @@ public:
         for (auto& leg : hardcoded_legend) {
             out = std::regex_replace(out, std::regex(std::get<0>(leg.second)), std::get<1>(leg.second));
         }
-        std::cout << out << std::endl;
+        return out;
+    }
+
+
+    static void MarketTab(struct nctab* t, struct ncplane* ncp, void* curry){
+        auto display = (UserDisplay*) curry;
+        ncplane_erase(ncp);
+        if (display->active) {
+            auto chart = display->DrawChart().c_str();
+            ncplane_puttext(ncp, 1,  NCALIGN_CENTER,chart, NULL);
+            ncplane_puttext(ncp, 1, NCALIGN_CENTER,
+                            "User display active.",
+                            NULL);
+        } else {
+            ncplane_puttext(ncp, 1, NCALIGN_CENTER,
+                            "User display not active.",
+                            NULL);
+        }
+        ncplane_erase(ncp);
+    }
+
+    static void PlanetTab(struct nctab* t, struct ncplane* ncp, void* curry){
+        (void) t;
+        ncplane_erase(ncp);
+        ncplane_puttext(ncp, 1, NCALIGN_CENTER,
+                        "This is placeholder text for the PLANET TAB.",
+                        NULL);
+    }
+
+    int display_main() {
+        //hackily wait for things to kick off
+        std::this_thread::sleep_for(std::chrono::milliseconds{1000});
+
+        if(!setlocale(LC_ALL, "")){
+            fprintf(stderr, "Couldn't set locale\n");
+            return EXIT_FAILURE;
+        }
+        notcurses_options opts{};
+        struct notcurses* nc = notcurses_core_init(&opts, nullptr);
+        if(nc == nullptr){
+            return EXIT_FAILURE;
+        }
+        unsigned dimy, dimx;
+        struct ncplane* n = notcurses_stdplane(nc);
+        ncplane_dim_yx(n, &dimy, &dimx);
+
+        struct ncplane_options popts = {
+                .y = 3,
+                .x = 5,
+                .rows = dimy - 10,
+                .cols = dimx - 10
+        };
+        struct ncplane* ncp = ncplane_create(n, &popts);
+        struct nctabbed_options topts = {};
+        topts.hdrchan = NCCHANNELS_INITIALIZER(255, 0, 0, 60, 60, 60);
+        topts.selchan = NCCHANNELS_INITIALIZER(0, 255, 0, 0, 0, 0);
+        topts.sepchan = NCCHANNELS_INITIALIZER(255, 255, 255, 100, 100, 100);
+        topts.separator = " || ";
+        topts.flags = false ? NCTABBED_OPTION_BOTTOM : 0;
+
+        struct nctabbed* nct = nctabbed_create(ncp, &topts);
+        nctabbed_add(nct, NULL, NULL, MarketTab, "Galactic Market", this);
+        nctabbed_add(nct, NULL, NULL, PlanetTab, "Planet", this);
+        nctabbed_redraw(nct);
+        notcurses_render(nc);
+
+
+        ncplane_puttext(n, 1, NCALIGN_CENTER,
+                        "Use left/right arrow keys for navigation, "
+                        "'[' and ']' to rotate tabs, "
+                        "'a' to add a tab, 'r' to remove a tab, "
+                        "',' and '.' to move the selected tab, "
+                        "and 'q' to quit",
+                        NULL);
+
+        uint32_t key;
+        ncinput ni;
+        int working_frametime_ms;
+        std::chrono::duration<double, std::milli> ms_double;
+        auto t1 = std::chrono::high_resolution_clock::now();
+        while (!destroyed) {
+            t1 = std::chrono::high_resolution_clock::now();
+            key = notcurses_get_blocking(nc, &ni);
+            switch(key){
+                case 'q':
+                    destroyed = true;
+                    break;
+                case NCKEY_RIGHT:
+                    nctabbed_next(nct);
+                    break;
+                case NCKEY_LEFT:
+                    nctabbed_prev(nct);
+                    break;
+            }
+            t1 = std::chrono::high_resolution_clock::now();
+
+
+
+            ms_double = std::chrono::high_resolution_clock::now() - t1;
+            working_frametime_ms = (int) ms_double.count();
+//            if (working_frametime_ms < chart_update_ms) {
+//                std::this_thread::sleep_for(std::chrono::milliseconds{chart_update_ms - working_frametime_ms});
+//            }
+
+            nctabbed_ensure_selected_header_visible(nct);
+            nctabbed_redraw(nct);
+            if(notcurses_render(nc)){
+                notcurses_stop(nc);
+                return EXIT_FAILURE;
+            }
+        }
+
+        if(notcurses_stop(nc) < 0){
+            return EXIT_FAILURE;
+        }
+        return EXIT_SUCCESS;
     }
 };
 

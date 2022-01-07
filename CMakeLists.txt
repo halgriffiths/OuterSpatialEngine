@@ -10,14 +10,27 @@ find_package(Threads REQUIRED)
 add_library(bazaarbot BazaarBot.h traders/AI_trader.h common/agent.h common/messages.h auction/auction_house.h metrics/logger.h traders/inventory.h common/commodity.h common/history.h traders/roles.h traders/fake_trader.h metrics/display.h common/concurrency.h)
 set_target_properties(bazaarbot PROPERTIES LINKER_LANGUAGE CXX)
 
-
+# THREADS stuff
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 target_link_libraries(bazaarbot PRIVATE Threads::Threads)
 
-############# DRIVER ############
+# NOTCURSES stuff
+find_package(PkgConfig)
+pkg_check_modules(NOTCURSES REQUIRED notcurses-core)
 
+add_library(libnotcurses++ SHARED IMPORTED)
+set_target_properties(libnotcurses++ PROPERTIES
+        IMPORTED_LOCATION "/usr/local/lib")
+
+target_link_libraries(bazaarbot PUBLIC notcurses++)
+target_link_libraries(bazaarbot PUBLIC ${NOTCURSES_LIBRARIES})
+target_include_directories(bazaarbot PUBLIC ${NOTCURSES_INCLUDE_DIRS})
+target_compile_options(bazaarbot PUBLIC ${NOTCURSES_CFLAGS_OTHER})
+
+
+############# DRIVER ############
 # GNUPLOT stuff
 find_package(Boost REQUIRED COMPONENTS
         iostreams system filesystem
@@ -43,7 +56,10 @@ target_link_libraries(driver PRIVATE
         util
         Threads::Threads
         )
-
+target_link_libraries(driver PUBLIC notcurses++)
+target_link_libraries(driver PUBLIC ${NOTCURSES_LIBRARIES})
+target_include_directories(driver PUBLIC ${NOTCURSES_INCLUDE_DIRS})
+target_compile_options(driver PUBLIC ${NOTCURSES_CFLAGS_OTHER})
 ############## TESTS #############
 ## Locate GTest
 #find_package(GTest REQUIRED)
