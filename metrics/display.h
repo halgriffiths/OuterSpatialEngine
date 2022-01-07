@@ -79,7 +79,9 @@ public:
         while (!destroyed) {
             t1 = std::chrono::high_resolution_clock::now();
 
-            DrawChart();
+            if (active) {
+                DrawChart();
+            }
 
             ms_double = std::chrono::high_resolution_clock::now() - t1;
             working_frametime_ms = (int) ms_double.count();
