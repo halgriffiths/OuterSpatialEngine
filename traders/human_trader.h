@@ -6,6 +6,7 @@
 #include "../common/agent.h"
 #include "../common/history.h"
 #include "../metrics/metrics.h"
+#include "../metrics/display.h"
 
 class PlayerTrader : public Trader {
 private:

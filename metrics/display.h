@@ -14,7 +14,6 @@
 
 #include <utility>
 #endif // Windows/Linux
-
 void get_terminal_size(int& width, int& height) {
 #if defined(_WIN32)
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -32,7 +31,7 @@ void get_terminal_size(int& width, int& height) {
 
 class GlobalDisplay {
 private:
-    int window_ms = 60000;
+    int window_ms = 20000;
     std::uint64_t start_time;
     std::uint64_t offset;
     int chart_update_ms;
@@ -112,7 +111,7 @@ public:
         args += ";plot ";
         for (auto& good : tracked_goods) {
             if (visible[good]) {
-                args += "'tmp/"+good+".dat' with lines title '" + good + "',";
+                args += "'global_tmp/"+good+".dat' with lines title '" + good + "',";
             }
         }
         args += "\"";

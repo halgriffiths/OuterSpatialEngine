@@ -88,6 +88,7 @@ public:
     double avg_lifespan = 0;
 
 private:
+    std::string folder = "global_tmp/";
     std::shared_ptr<std::mutex> file_mutex;
     int curr_tick = 0;
     std::uint64_t offset;
@@ -129,7 +130,7 @@ public:
         file_mutex->lock();
         for (auto& good : tracked_goods) {
             data_files[good] = std::make_unique<std::ofstream>();
-            data_files[good]->open(("tmp/"+good + ".dat").c_str(), std::ios::trunc);
+            data_files[good]->open((folder+good + ".dat").c_str(), std::ios::trunc);
             *(data_files[good].get()) << "# raw data file for " << good << std::endl;
             *(data_files[good].get()) << "0 0\n";
         }
@@ -139,7 +140,7 @@ public:
         file_mutex->lock();
         for (auto& item : data_files) {
             item.second->close();
-            item.second->open(("tmp/"+item.first + ".dat").c_str(), std::ios::app);
+            item.second->open((folder+item.first + ".dat").c_str(), std::ios::app);
             int num = 0;
             double total_value = 0;
             double total_time_s = 0;
