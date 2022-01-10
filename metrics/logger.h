@@ -80,11 +80,18 @@ private:
 };
 
 class ConsoleLogger : public Logger {
+private:
+    bool ready = false;
 public:
     ConsoleLogger(Log::LogLevel verbosity, std::string name)
-        : Logger(verbosity, name) {};
+        : Logger(verbosity, name) {
+        ready = true;
+      };
 
     void LogInternal(std::string raw_message) const override {
+        if (!ready) {
+            return;
+        }
         raw_message += "\n";
         std::fwrite(raw_message.c_str(), 1, raw_message.size()+1, stdout);
     }
