@@ -14,6 +14,7 @@
 #include "metrics/logger.h"
 #include "traders/AI_trader.h"
 #include "traders/fake_trader.h"
+#include "traders/human_trader.h"
 #include "traders/roles.h"
 
 #include "metrics/display.h"

@@ -1,38 +1,60 @@
 //
 // Created by henry on 10/01/2022.
 //
-
 #ifndef CPPBAZAARBOT_HUMAN_TRADER_H
 #define CPPBAZAARBOT_HUMAN_TRADER_H
+#include "../common/agent.h"
+#include "../common/history.h"
+#include "../metrics/metrics.h"
+
 class PlayerTrader : public Trader {
 private:
+    int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
+
     std::atomic_bool ready = false;
     std::atomic_bool destroyed = false;
 
-    std::thread message_thread;
-    std::thread UI_thread;
-    std::thread production_thread;
-    std::thread monitor_thread;
+    std::string unique_name;
 
-    int MAX_PROCESSED_MESSAGES_PER_FLUSH = 100;
+    std::thread message_thread{};
+    std::thread UI_thread{};
+    std::thread production_thread{};
+    std::thread monitor_thread{};
+
+    std::vector<std::string> tracked_goods{};
+    std::vector<std::string> tracked_roles{};
+
+    std::weak_ptr<AuctionHouse> auction_house{};
+    int auction_house_id = -1;
+
+    Inventory _inventory;
+    LocalMetrics local_metrics;
+    FileLogger logger;
+
+    double money;
 public:
-    PlayerTrader(int id, std::weak_ptr<AuctionHouse> auction_house_ptr, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, Log::LogLevel verbosity = Log::WARN)
+    PlayerTrader(std::uint64_t start_time, int id, std::weak_ptr<AuctionHouse> auction_house_ptr, double starting_money, double inv_capacity, const std::vector<InventoryItem> &starting_inv, std::vector<std::string> tracked_goods, std::vector<std::string> tracked_roles, Log::LogLevel verbosity)
             : Trader(id, "player")
             , auction_house(std::move(auction_house_ptr))
             , money(starting_money)
             , unique_name(class_name + std::to_string(id))
             , logger(FileLogger(verbosity, unique_name))
-            , message_thread([this] { MessageLoop(); })
-            , TICK_TIME_MS(tick_time_ms) {
+            , tracked_goods(tracked_goods)
+            , tracked_roles(tracked_roles)
+            , local_metrics(start_time, tracked_goods,tracked_roles) {
         //construct inv
         auction_house_id = auction_house.lock()->id;
         _inventory = Inventory(inv_capacity, starting_inv);
 
+        UI_thread = std::thread([this] { UILoop(); });
+        production_thread = std::thread([this] { ProductionLoop(); });
+        monitor_thread = std::thread([this] { MonitorLoop(); });
+        message_thread = std::thread([this] { MessageLoop(); });
     }
 
     ~PlayerTrader() {
         logger.Log(Log::DEBUG, "Destroying Player trader");
-        ShutdownMessageThread();
+        Shutdown();
         _inventory.inventory.clear();
         auction_house.reset();
     }
@@ -70,25 +92,56 @@ public:
     int TryTakeCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
     int TryAddCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
 };
-void AITrader::MessageLoop() {
+void PlayerTrader::MessageLoop() {
     while (!destroyed) {
         FlushInbox();
         FlushOutbox();
     }
 }
 void PlayerTrader::ProductionLoop() {
+    while (!ready) {}
     while (!destroyed) {
         //Idle game logic goes here...
     }
 }
 void PlayerTrader::UILoop() {
+    while (!ready) {}
     while (!destroyed) {
         //UI logic goes here...
+
+        for (auto& good : tracked_goods) {
+            std::cout << "\t\t\t" << good;
+        }
+        std::cout << std::endl;
+        for (auto& good : tracked_goods) {
+            double curr_price = local_metrics.local_history.prices.most_recent[good];
+
+            std::cout << "\t\t$" << curr_price;
+            double pc_change = local_metrics.local_history.prices.t_percentage_change(good, 1000);
+            if (pc_change < 0) {
+                //▼
+                std::cout << "\033[1;31m(▼" << pc_change << "%)\033[0m";
+            } else if (pc_change > 0) {
+                //▲
+                std::cout << "\033[1;32m(▲" << pc_change << "%)\033[0m";
+            } else {
+                std::cout << "(" << pc_change << "%)";
+            }
+        }
+        std::cout << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds{1000});
     }
 }
 void PlayerTrader::MonitorLoop() {
+    while (!ready) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    }
     while (!destroyed) {
         //Polling logic goes here...
+        auto res = auction_house.lock();
+        if (res) {
+            local_metrics.CollectAuctionHouseMetrics(res);
+        }
     }
 }
 
@@ -107,7 +160,6 @@ void PlayerTrader::FlushOutbox() {
             if (res) {
                 res->ReceiveMessage(std::move(outgoing->second));
             } else {
-                queue_active = false;
                 destroyed = true;
                 return;
             }
@@ -149,10 +201,10 @@ void PlayerTrader::FlushInbox() {
 }
 void PlayerTrader::ProcessBidResult(Message &message) {
 }
-void AITrader::ProcessAskResult(Message& message) {
+void PlayerTrader::ProcessAskResult(Message& message) {
 }
 
-void AITrader::ProcessRegistrationResponse(Message& message) {
+void PlayerTrader::ProcessRegistrationResponse(Message& message) {
     if (message.register_response->accepted) {
         ready = true;
         logger.Log(Log::INFO, "Successfully registered with auction house");
@@ -162,7 +214,7 @@ void AITrader::ProcessRegistrationResponse(Message& message) {
     }
 }
 
-bool AITrader::HasMoney(double quantity) {
+bool PlayerTrader::HasMoney(double quantity) {
     return (money >= quantity);
 }
 double PlayerTrader::TryTakeMoney(double quantity, bool atomic) {
@@ -240,4 +292,18 @@ int PlayerTrader::TryAddCommodity(const std::string& commodity, int quantity, st
     _inventory.AddItem(commodity, actual_transferred, unit_price);
     return actual_transferred;
 }
+void PlayerTrader::Shutdown() {
+    auto res = auction_house.lock();
+    if (res) {
+        res->ReceiveMessage(*Message(id).AddShutdownNotify({id, class_name, ticks}));
+    }
+    destroyed = true;
+    message_thread.join();
+    monitor_thread.join();
+    production_thread.join();
+    UI_thread.join();
+
+    logger.Log(Log::INFO, unique_name+std::string(" destroyed."));
+}
+
 #endif//CPPBAZAARBOT_HUMAN_TRADER_H

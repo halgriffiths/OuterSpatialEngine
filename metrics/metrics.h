@@ -8,6 +8,9 @@
 #include "../traders/AI_trader.h"
 # include <regex>
 #include <fstream>
+
+class PlayerTrader;
+
 namespace {
     // SRC: https://www.jeremymorgan.com/tutorials/c-programming/how-to-capture-the-output-of-a-linux-command-in-c/
     std::string GetStdoutFromCommand(std::string cmd) {
@@ -28,6 +31,50 @@ namespace {
     }
 }
 
+// Intended to be stored in-memory, this lightweight metric tracker is for human player UI purposes
+class LocalMetrics {
+public:
+    std::vector<std::string> tracked_goods;
+    std::vector<std::string> tracked_roles;
+    History local_history = {};
+
+private:
+    friend PlayerTrader;
+
+    int curr_tick = 0;
+    std::uint64_t offset;
+    std::uint64_t start_time;
+    std::uint64_t prev_time;
+public:
+    LocalMetrics(std::uint64_t start_time, const std::vector<std::string>& tracked_goods, std::vector<std::string> tracked_roles)
+    : start_time(start_time)
+    , tracked_goods(tracked_goods)
+    , tracked_roles(tracked_roles) {
+        offset = to_unix_timestamp_ms(std::chrono::system_clock::now()) - start_time;
+        for (auto& item : tracked_goods) {
+            local_history.initialise(item);
+        }
+    }
+
+    void CollectAuctionHouseMetrics(const std::shared_ptr<AuctionHouse>& auction_house) {
+        auto local_curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
+        double time_passed_s = (double)(local_curr_time - offset - start_time) / 1000;
+        std::uint64_t lookback_ms = local_curr_time - prev_time;
+        for (auto& good : tracked_goods) {
+            double price = auction_house->t_AverageHistoricalPrice(good, lookback_ms);
+            double asks = auction_house->t_AverageHistoricalAsks(good, lookback_ms);
+            double bids = auction_house->t_AverageHistoricalBids(good, lookback_ms);
+
+            local_history.prices.add(good, price);
+            local_history.asks.add(good, asks);
+            local_history.bids.add(good, bids);
+            local_history.net_supply.add(good, asks-bids);
+        }
+        curr_tick++;
+    }
+};
+
+// Intended to be stored serverside, this produces datafiles on-disk which can be checked for debugging/analysis purposes
 class GlobalMetrics {
 public:
     std::vector<std::string> tracked_goods;

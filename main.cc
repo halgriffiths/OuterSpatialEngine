@@ -133,6 +133,10 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     }
     // --- SET UP DEFAULT INVENTORIES ---
     std::map<std::string, std::vector<InventoryItem>> inv;
+    std::vector<InventoryItem> player_inv = {{comm["food"], 10, 10},
+                                             {comm["tools"], 10, 10},
+                                             {comm["wood"], 10, 10},
+                                             {comm["fertilizer"], 10, 10}};
     {
         inv.emplace("farmer", std::vector<InventoryItem>{{comm["food"], 0, 0},
                                                          {comm["tools"], 1, 2},
@@ -192,6 +196,13 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
 //        //fake_trader->RegisterSurplus("fertilizer", -0.9, 220, 50);
 //        max_id++;
 //    }
+
+    auto player_trader = std::make_shared<PlayerTrader>(metrics_start_time, max_id, auction_house, 100, 50, player_inv, tracked_goods, tracked_roles, Log::DEBUG);
+    {
+        player_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, player_trader))), auction_house->id);
+        max_id++;
+    }
+
     global_metrics.CollectMetrics(auction_house);
     auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
     if (animation_fps <= 0) {
@@ -253,7 +264,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
         double price = auction_house->AverageHistoricalPrice(good, 10);
 
         std::cout << "\t\t$" << price;
-        double pc_change = auction_house->history.prices.percentage_change(good, 10);
+        double pc_change = auction_house->history.prices.t_percentage_change(good, 10000);
         if (pc_change < 0) {
             //▼
             std::cout << "\033[1;31m(▼" << pc_change << "%)\033[0m";
@@ -278,7 +289,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
 // ---------------- MAIN ----------
 int main(int argc, char *argv[]) {
     double duration_s = (argc > 1) ? std::stod(std::string(argv[1])) : 60;
-    double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 1;
+    double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 0;
     double trader_tps = (argc > 3) ? std::stod(std::string(argv[3])) : 2;
     Run(duration_s, animation_fps, trader_tps);
     return 0;
