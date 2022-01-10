@@ -47,6 +47,7 @@ protected:
     friend AuctionHouse;
     std::string class_name;
     virtual double TryTakeMoney(double quantity, bool atomic) {};
+    virtual void ForceTakeMoney(double quantity) {};
     virtual void AddMoney(double quantity) {};
     virtual int TryAddCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
     virtual int TryTakeCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};

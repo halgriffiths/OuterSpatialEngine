@@ -137,9 +137,7 @@ public:
     void TickOnce();
     void MessageLoop();
 
-    // EXTERNAL QUERIES
-    bool HasMoney(double quantity) override;
-    bool HasCommodity(const std::string& commodity, int quantity) override;
+
 
     int GetIdeal(const std::string& name);
     int Query(const std::string& name);
@@ -147,10 +145,14 @@ public:
 
     double GetIdleTax() { return IDLE_TAX;};
     double QueryMoney() { return money;};
+protected:
+    // EXTERNAL QUERIES
+    bool HasMoney(double quantity) override;
+    bool HasCommodity(const std::string& commodity, int quantity) override;
 
     // EXTERNAL SETTERS (i.e. for auction house & role only)
     double TryTakeMoney(double quantity, bool atomic) override;
-    void ForceTakeMoney(double quantity);
+    void ForceTakeMoney(double quantity) override;
     void AddMoney(double quantity) override;
 
     int TryTakeCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) override;
