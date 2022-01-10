@@ -30,7 +30,7 @@ void get_terminal_size(int& width, int& height) {
 }
 
 
-class UserDisplay {
+class GlobalDisplay {
 private:
     int window_ms = 60000;
     std::uint64_t start_time;
@@ -46,7 +46,7 @@ public:
     std::atomic_bool destroyed = false;
     std::atomic_bool active = true;
 
-    UserDisplay(std::uint64_t start_time, double chart_update_ms, std::shared_ptr<std::mutex> mutex, const std::vector<std::string>& tracked_goods)
+    GlobalDisplay(std::uint64_t start_time, double chart_update_ms, std::shared_ptr<std::mutex> mutex, const std::vector<std::string>& tracked_goods)
             : start_time(start_time)
             , chart_update_ms(chart_update_ms)
             , file_mutex(std::move(mutex))

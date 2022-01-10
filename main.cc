@@ -204,9 +204,9 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     }
 
     global_metrics.CollectMetrics(auction_house);
-    auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
+    auto global_display = GlobalDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
     if (animation_fps <= 0) {
-        user_display.active = false;
+        global_display.active = false;
     }
     // --- MAIN LOOP ---
     std::cout << std::fixed;
@@ -254,7 +254,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     std::cout << "Manually shutdown AH" << std::endl;
     auction_house->Shutdown();
     auction_house_thread.join();
-    user_display.Shutdown();
+    global_display.Shutdown();
 
     for (auto& good : tracked_goods) {
         std::cout << "\t\t\t" << good;
