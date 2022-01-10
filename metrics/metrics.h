@@ -121,7 +121,7 @@ public:
         }
         file_mutex->unlock();
     }
-    void CollectMetrics(const std::shared_ptr<AuctionHouse>& auction_house, int num_alive) {
+    void CollectMetrics(const std::shared_ptr<AuctionHouse>& auction_house) {
         auto local_curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
         double time_passed_s = (double)(local_curr_time - offset - start_time) / 1000;
         for (auto& good : tracked_goods) {

@@ -91,20 +91,25 @@ public:
 };
 
 class FileLogger : public Logger {
+private:
     FILE * log_file;
+    mutable std::mutex log_mutex;
 public:
-    FileLogger(Log::LogLevel verbosity, std::string name)
-        : Logger(verbosity, name) {
-        log_file = std::fopen (("logs/" + name + "_log.txt").c_str(), "w");
-        std::fwrite("# Log file\n", 1, 12, log_file);
+    FileLogger(Log::LogLevel verbosity, std::string unique_name)
+        : Logger(verbosity, unique_name) {
+        //keep file open since we log frequently
+        log_file = std::fopen (("logs/" + unique_name + "_log.txt").c_str(), "w");
+        std::fwrite("# Log file\n", 1, 11, log_file);
     };
 
     ~FileLogger() {
       std::fclose(log_file);
     }
     void LogInternal(std::string raw_message) const override {
+        log_mutex.lock();
         raw_message += "\n";
-        std::fwrite(raw_message.c_str(), 1, raw_message.size()+1, log_file);
+        std::fwrite(raw_message.c_str(), 1, raw_message.size(), log_file);
+        log_mutex.unlock();
     }
 };
 

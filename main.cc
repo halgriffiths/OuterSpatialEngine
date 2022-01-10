@@ -120,10 +120,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     auto file_mutex = std::make_shared<std::mutex>();
     auto metrics_start_time = to_unix_timestamp_ms(std::chrono::high_resolution_clock::now());
     auto global_metrics = GlobalMetrics(metrics_start_time, tracked_goods, tracked_roles, file_mutex);
-    auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
-    if (animation_fps <= 0) {
-        user_display.active = false;
-    }
+
     // --- SET UP DEFAULT COMMODITIES ---
     std::map<std::string, Commodity> comm;
     {
@@ -195,7 +192,11 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
 //        //fake_trader->RegisterSurplus("fertilizer", -0.9, 220, 50);
 //        max_id++;
 //    }
-
+    global_metrics.CollectMetrics(auction_house);
+    auto user_display = UserDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
+    if (animation_fps <= 0) {
+        user_display.active = false;
+    }
     // --- MAIN LOOP ---
     std::cout << std::fixed;
     std::cout << std::setprecision(2);
@@ -220,7 +221,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
             global_metrics.update_datafiles(prev_write_time);
             prev_write_time = elapsed;
         }
-        global_metrics.CollectMetrics(auction_house, num_traders);
+        global_metrics.CollectMetrics(auction_house);
         std::chrono::duration<double, std::milli> ms_double = std::chrono::high_resolution_clock::now() - t1;
         int working_frametime_ms = (int) ms_double.count();
 
@@ -279,7 +280,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
 // ---------------- MAIN ----------
 int main(int argc, char *argv[]) {
     double duration_s = (argc > 1) ? std::stod(std::string(argv[1])) : 60;
-    double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 0;
+    double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 1;
     double trader_tps = (argc > 3) ? std::stod(std::string(argv[3])) : 2;
     Run(duration_s, animation_fps, trader_tps);
     return 0;
