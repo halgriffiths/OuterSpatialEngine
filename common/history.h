@@ -17,7 +17,7 @@ enum LogType {
 };
 
 class HistoryLog {
-    int max_size = 6000; //10 min worth of data @ 100ms frametime
+    int max_size = 60000; //10 min worth of data @ 10ms frametime
 public:
     LogType type;
     std::map<std::string, std::vector<std::pair<double, std::int64_t>>> log;
@@ -31,7 +31,7 @@ public:
         if (log.count(name) > 0) {
             return;// already registered
         }
-        double starting_value = 10;
+        double starting_value = (type == LogType::PRICE) ? 10 : 0;
         log[name].emplace_back(starting_value, to_unix_timestamp_ms(std::chrono::system_clock::now()));
         most_recent[name] = starting_value;
     }
@@ -91,14 +91,18 @@ public:
         return 100*(curr_value- prev_value)/prev_value;
     }
 
-    double t_percentage_change(const std::string& name, std::int64_t time) const {
+    double t_percentage_change(const std::string& name, std::int64_t duration) const {
+        if (log.count(name) != 1) {
+            return 0;// no entry found
+        }
+        auto start_time = log.at(name).back().second - duration;
         double prev_value;
         auto it = log.at(name).rbegin();
-        while (it != log.at(name).rend() && it->second > time) {
+        while (it != log.at(name).rend() && it->second >= start_time) {
             it++;
         }
         if (it == log.at(name).rend()) {
-            prev_value = log.at(name).back().first;
+            prev_value = log.at(name).front().first;
         } else {
             prev_value = it->first;
         }
