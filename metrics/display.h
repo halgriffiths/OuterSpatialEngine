@@ -129,13 +129,4 @@ public:
     }
 };
 
-void display_plot(GlobalMetrics& metrics, int window = 0) {
-    int x = 100;
-    int y = 100;
-    get_terminal_size(x, y);
-    y -= 7;//leave space for legend at bottom
-    auto raw = metrics.plot_terminal(window, x, y);
-    std::cout << raw << std::endl;
-}
-
 #endif//CPPBAZAARBOT_DISPLAY_H

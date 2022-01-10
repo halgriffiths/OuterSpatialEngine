@@ -243,8 +243,6 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     std::cout << "Manually shutdown AH" << std::endl;
     auction_house->Shutdown();
     auction_house_thread.join();
-    //Plot final results
-    global_metrics.plot_verbose();
     user_display.Shutdown();
 
     for (auto& good : tracked_goods) {
