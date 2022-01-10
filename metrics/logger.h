@@ -99,16 +99,12 @@ public:
 
 class FileLogger : public Logger {
 private:
-    bool ready = false;
     FILE * log_file;
 public:
     FileLogger(Log::LogLevel verbosity, std::string unique_name)
         : Logger(verbosity, unique_name) {
         //keep file open since we log frequently
         log_file = std::fopen (("logs/" + unique_name + "_log.txt").c_str(), "w");
-        if (log_file){
-            ready = true;
-        }
         std::fwrite("# Log file\n", 1, 11, log_file);
     };
 
