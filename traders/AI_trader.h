@@ -60,7 +60,7 @@ private:
     friend Role;
     std::mt19937 rng_gen = std::mt19937(std::random_device()());
     double MIN_PRICE = 0.10;
-    bool initialised = false;
+    bool ready = false;
 
     std::optional<std::shared_ptr<Role>> logic;
     Inventory _inventory;
@@ -88,7 +88,6 @@ public:
     , money(starting_money)
     , unique_name(class_name + std::to_string(id))
     , logger(FileLogger(verbosity, unique_name))
-    , message_thread([this] { MessageLoop(); })
     , TICK_TIME_MS(tick_time_ms) {
         //construct inv
         auction_house_id = auction_house.lock()->id;
@@ -98,6 +97,7 @@ public:
             observed_trading_range[item.name] = {base_price*0.5, base_price*2};
             _inventory.SetCost(item.name, base_price);
         }
+            message_thread = std::thread([this] { MessageLoop(); });
     }
 
     ~AITrader() {
@@ -160,15 +160,15 @@ protected:
 };
 
 void AITrader::FlushOutbox() {
-        //logger.Log(Log::DEBUG, "Flushing outbox");
+        logger.Log(Log::DEBUG, "Flushing outbox");
         auto outgoing = outbox.pop();
         int num_processed = 0;
         while (outgoing && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
             // Trader can currently only talk to auction houses (not other traders)
             if (outgoing->first != auction_house_id) {
-                //logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
+                logger.Log(Log::ERROR, "Failed to send message, unknown recipient " + std::to_string(outgoing->first));
             } else {
-                //logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
+                logger.LogSent(outgoing->first, Log::DEBUG, outgoing->second.ToString());
                 auto res = auction_house.lock();
                 if (res) {
                     res->ReceiveMessage(std::move(outgoing->second));
@@ -182,12 +182,12 @@ void AITrader::FlushOutbox() {
             outgoing = outbox.pop();
         }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        //logger.Log(Log::WARN, "Outbox not fully flushed");
+        logger.Log(Log::WARN, "Outbox not fully flushed");
     }
-    //logger.Log(Log::DEBUG, "Flush finished");
+    logger.Log(Log::DEBUG, "Flush finished");
 }
 void AITrader::FlushInbox() {
-    //logger.Log(Log::DEBUG, "Flushing inbox");
+    logger.Log(Log::DEBUG, "Flushing inbox");
     auto incoming_message = inbox.pop();
     int num_processed = 0;
     while (incoming_message && num_processed < MAX_PROCESSED_MESSAGES_PER_FLUSH) {
@@ -210,9 +210,9 @@ void AITrader::FlushInbox() {
         incoming_message = inbox.pop();
     }
     if (num_processed == MAX_PROCESSED_MESSAGES_PER_FLUSH) {
-        //logger.Log(Log::WARN, "Inbox not fully flushed");
+        logger.Log(Log::WARN, "Inbox not fully flushed");
     }
-    //logger.Log(Log::DEBUG, "Flush finished");
+    logger.Log(Log::DEBUG, "Flush finished");
 }
 void AITrader::ProcessAskResult(Message& message) {
     UpdatePriceModelFromAsk(*message.ask_result);
@@ -222,7 +222,7 @@ void AITrader::ProcessBidResult(Message& message) {
 }
 void AITrader::ProcessRegistrationResponse(Message& message) {
     if (message.register_response->accepted) {
-        initialised = true;
+        ready = true;
         logger.Log(Log::INFO, "Successfully registered with auction house");
     } else {
         logger.Log(Log::ERROR, "Failed to register with auction house");
@@ -491,7 +491,7 @@ void AITrader::Tick() {
     logger.Log(Log::INFO, "Beginning tickloop");
     while (!destroyed) {
         auto t1 = std::chrono::high_resolution_clock::now();
-        if (initialised) {
+        if (ready) {
             if (logic) {
                 logger.Log(Log::DEBUG, "Ticking internal logic");
                 (*logic)->TickRole(*this);
@@ -503,7 +503,7 @@ void AITrader::Tick() {
         if (money <= 0) {
             Shutdown();
         }
-        if (initialised) {
+        if (ready) {
             ticks++;
         }
         std::chrono::duration<double, std::milli> elapsed_ms = std::chrono::high_resolution_clock::now() - t1;
@@ -520,7 +520,7 @@ void AITrader::TickOnce() {
     if (destroyed) {
         return;
     }
-    if (initialised) {
+    if (ready) {
         if (logic) {
             logger.Log(Log::DEBUG, "Ticking internal logic");
             (*logic)->TickRole(*this);
@@ -533,7 +533,7 @@ void AITrader::TickOnce() {
         destroyed = true;
         return;
     }
-    if (initialised){
+    if (ready){
         ticks++;
     }
 }

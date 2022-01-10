@@ -58,8 +58,9 @@ public:
     AuctionHouse(int auction_house_id, Log::LogLevel verbosity)
         : Agent(auction_house_id)
         , unique_name(std::string("AH")+std::to_string(id))
-        , logger(FileLogger(verbosity, unique_name))
-        , message_thread([this] { MessageLoop(); }) { }
+        , logger(FileLogger(verbosity, unique_name)) {
+        message_thread = std::thread([this] { MessageLoop(); });
+    }
 
     ~AuctionHouse() override {
         logger.Log(Log::DEBUG, "Destroying auction house");
