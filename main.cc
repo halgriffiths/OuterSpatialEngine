@@ -288,7 +288,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
 // ---------------- MAIN ----------
 int main(int argc, char *argv[]) {
     double duration_s = (argc > 1) ? std::stod(std::string(argv[1])) : 60;
-    double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 0;
+    double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 2;
     double trader_tps = (argc > 3) ? std::stod(std::string(argv[3])) : 2;
     Run(duration_s, animation_fps, trader_tps);
     return 0;
