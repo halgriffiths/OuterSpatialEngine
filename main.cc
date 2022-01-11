@@ -1,9 +1,7 @@
 //
 // Created by henry on 06/12/2021.
 //
-#include <iostream>
-#include "BazaarBot.h"
-#include <vector>
+#include "outerspatial_engine.h"
 #include <chrono>
 #include <thread>
 
