@@ -99,15 +99,14 @@ public:
         get_terminal_size(x, y);
         y -= 7;//leave space for legend at bottom
 
+        auto local_curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
+        double time_passed_s = (double)(local_curr_time - offset - start_time) / 1000;
 
         std::string args = "gnuplot -e \"set term dumb " + std::to_string(x)+ " " + std::to_string(y);
         args += ";set offsets 0, 0, 0, 0";
         args += ";set title 'Prices'";
-        //args += ";set xrange [" + std::to_string(curr_tick - window) + ":" + std::to_string(curr_tick) + "]";
-        auto local_curr_time = to_unix_timestamp_ms(std::chrono::system_clock::now());
-        double time_passed_s = (double)(local_curr_time - offset - start_time) / 1000;
-        args += ";set xrange ["+ std::to_string(time_passed_s - (window_ms/1000)) + ":" + std::to_string(time_passed_s) + "]";
 
+        args += ";set xrange ["+ std::to_string(time_passed_s - (window_ms/1000)) + ":" + std::to_string(time_passed_s) + "]";
         args += ";plot ";
         for (auto& good : tracked_goods) {
             if (visible[good]) {
