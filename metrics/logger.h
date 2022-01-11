@@ -7,7 +7,6 @@
 #define CPPBAZAARBOT_LOGGER_H
 
 #include <utility>
-#include "gnuplot-iostream.h"
 #include <iomanip>
 #include <iostream>
 #include <ostream>

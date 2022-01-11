@@ -18,29 +18,11 @@ target_link_libraries(bazaarbot PRIVATE Threads::Threads)
 
 ############# DRIVER ############
 
-# GNUPLOT stuff
-find_package(Boost REQUIRED COMPONENTS
-        iostreams system filesystem
-        )
-
-# Target.
-add_library(gnuplot_iostream INTERFACE)
-target_include_directories(gnuplot_iostream INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
-        $<INSTALL_INTERFACE:>)
-target_link_libraries(gnuplot_iostream INTERFACE
-        Boost::iostreams
-        Boost::system
-        Boost::filesystem
-        )
-
 # Add main.cpp file of project root directory as source file
 set(SOURCE_FILES main.cc metrics/metrics.h)
 add_executable(driver ${SOURCE_FILES})
 target_compile_features(driver PRIVATE cxx_std_17)
 target_link_libraries(driver PRIVATE
-        gnuplot_iostream
-        util
         Threads::Threads
         )
 
