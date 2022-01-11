@@ -15,7 +15,7 @@ The original repo was based on a paper which had some serious issues, many of wh
 
 https://user-images.githubusercontent.com/90389170/148947854-6283e273-f780-4d5a-af27-6d9f109007c0.mp4
 
-The recorded run shows 120 AI traders competing at 5 TPS. In reality this action-speed would be slowed down way more (otherwise the market changes way too fast!) but it makes for a more interesting demo.
+The recorded run shows the market's price/time chart for 120 AI traders competing at 5 TPS. In reality this action-speed would be slowed down way more (otherwise the market changes way too fast!) but it makes for a more interesting demo.
 
 # Example output
 | Qt plot  |  ASCII plot   |
