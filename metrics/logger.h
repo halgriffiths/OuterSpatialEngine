@@ -105,9 +105,6 @@ public:
       std::fclose(log_file);
     }
     void LogInternal(std::string raw_message) const override {
-        if (!ready) {
-            return;
-        }
         raw_message += "\n";
         std::fwrite(raw_message.c_str(), 1, raw_message.size(), log_file);
     }
