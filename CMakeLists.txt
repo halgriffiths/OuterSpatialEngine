@@ -25,14 +25,3 @@ target_compile_features(driver PRIVATE cxx_std_17)
 target_link_libraries(driver PRIVATE
         Threads::Threads
         )
-
-############## TESTS #############
-## Locate GTest
-#find_package(GTest REQUIRED)
-#include_directories(${GTEST_INCLUDE_DIRS})
-#set(TEST_SOURCES testing.cc)
-#add_executable(runTests ${TEST_SOURCES})
-#set_target_properties(runTests PROPERTIES LINKER_LANGUAGE CXX)
-## Link runTests with newly generated bazaarbot library
-#add_dependencies(runTests bazaarbot)
-#target_link_libraries(runTests ${CMAKE_SOURCE_DIR}/libbazaarbot.a ${GTEST_LIBRARIES} pthread)

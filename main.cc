@@ -3,7 +3,9 @@
 //
 #include "outerspatial_engine.h"
 #include <chrono>
+#include <iostream>
 #include <thread>
+#include <vector>
 
 std::shared_ptr<AITrader> MakeAgent(const std::string& class_name, int curr_id,
                                     std::shared_ptr<AuctionHouse>& auction_house,
