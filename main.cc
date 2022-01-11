@@ -83,7 +83,6 @@ std::string ChooseNewClassWeighted(std::vector<std::string>& tracked_goods, std:
         weights.push_back(std::exp(gamma*supply));
     }
     int choice = RandomChoice((int) weights.size(),  weights, gen);
-    assert(choice != -1);
     return GetProducer(tracked_goods[choice]);
 }
 
