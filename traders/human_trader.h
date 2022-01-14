@@ -109,27 +109,6 @@ void PlayerTrader::UILoop() {
     while (!ready) {}
     while (!destroyed) {
         //UI logic goes here...
-
-        for (auto& good : tracked_goods) {
-            std::cout << "\t\t\t" << good;
-        }
-        std::cout << std::endl;
-        for (auto& good : tracked_goods) {
-            double curr_price = local_metrics.local_history.prices.most_recent[good];
-
-            std::cout << "\t\t$" << curr_price;
-            double pc_change = local_metrics.local_history.prices.t_percentage_change(good, 1000);
-            if (pc_change < 0) {
-                //▼
-                std::cout << "\033[1;31m(▼" << pc_change << "%)\033[0m";
-            } else if (pc_change > 0) {
-                //▲
-                std::cout << "\033[1;32m(▲" << pc_change << "%)\033[0m";
-            } else {
-                std::cout << "(" << pc_change << "%)";
-            }
-        }
-        std::cout << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds{1000});
     }
 }

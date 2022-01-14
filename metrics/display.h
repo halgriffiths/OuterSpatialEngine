@@ -36,6 +36,7 @@ private:
     std::uint64_t offset;
     int chart_update_ms;
     std::shared_ptr<std::mutex> file_mutex;
+    std::shared_ptr<AuctionHouse> auction_house;
     std::vector<std::string> tracked_goods;
     std::map<std::string, bool> visible;
     std::map<std::string, std::tuple<std::string, std::string>> hardcoded_legend;
@@ -45,8 +46,9 @@ public:
     std::atomic_bool destroyed = false;
     std::atomic_bool active = true;
 
-    GlobalDisplay(std::uint64_t start_time, double chart_update_ms, std::shared_ptr<std::mutex> mutex, const std::vector<std::string>& tracked_goods)
+    GlobalDisplay(std::uint64_t start_time, std::shared_ptr<AuctionHouse> auction_house, double chart_update_ms, std::shared_ptr<std::mutex> mutex, const std::vector<std::string>& tracked_goods)
             : start_time(start_time)
+            , auction_house(auction_house)
             , chart_update_ms(chart_update_ms)
             , file_mutex(std::move(mutex))
             , tracked_goods(tracked_goods)
@@ -74,12 +76,14 @@ public:
     void Tick() {
         int working_frametime_ms;
         std::chrono::duration<double, std::milli> ms_double;
+        std::this_thread::sleep_for(std::chrono::milliseconds{chart_update_ms});
         auto t1 = std::chrono::high_resolution_clock::now();
         while (!destroyed) {
             t1 = std::chrono::high_resolution_clock::now();
 
             if (active) {
                 DrawChart();
+                WriteFooter();
             }
 
             ms_double = std::chrono::high_resolution_clock::now() - t1;
@@ -93,7 +97,24 @@ public:
         std::cout << "Closing display" << std::endl;
     }
 
-    void DrawChart() {
+    void WriteFooter() {
+        for (auto& good : tracked_goods) {
+            double curr_price = auction_house->MostRecentPrice(good);
+            double pc_change = auction_house->t_PercentPriceChange(good, window_ms);
+            std::cout << std::left << std::setw(10) << good;
+            if (pc_change < 0) {
+                //▼
+                std::cout << " $" << curr_price << " \033[1;31m(▼" << pc_change << "%)\033[0m";
+            } else if (pc_change > 0) {
+                //▲
+                std::cout << " " << "$" << curr_price << " \033[1;32m(▲" << pc_change << "%)\033[0m";
+            } else {
+                std::cout << " " << "$" << curr_price << " (" << pc_change << "%)";
+            }
+            std::cout << std::endl;
+        }
+    }
+    void DrawChart(bool all = false) {
         int x = 100;
         int y = 100;
         get_terminal_size(x, y);
@@ -105,8 +126,12 @@ public:
         std::string args = "gnuplot -e \"set term dumb " + std::to_string(x)+ " " + std::to_string(y);
         args += ";set offsets 0, 0, 0, 0";
         args += ";set title 'Prices'";
+        if (all) {
+            args += ";set xrange [0:" + std::to_string(time_passed_s) + "]";
+        } else {
+            args += ";set xrange ["+ std::to_string(time_passed_s - (window_ms/1000)) + ":" + std::to_string(time_passed_s) + "]";
+        }
 
-        args += ";set xrange ["+ std::to_string(time_passed_s - (window_ms/1000)) + ":" + std::to_string(time_passed_s) + "]";
         args += ";plot ";
         for (auto& good : tracked_goods) {
             if (visible[good]) {

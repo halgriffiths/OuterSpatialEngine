@@ -55,7 +55,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     } else {
         TARGET_ANIMATION_MS = 1000;
     }
-    int writes_per_animation = 10;
+    int writes_per_animation = 20;
 
     auto trader_log_level = Log::DEBUG;
     auto AH_log_level = Log::DEBUG;
@@ -158,7 +158,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     }
 
     global_metrics.CollectMetrics(auction_house);
-    auto global_display = GlobalDisplay(metrics_start_time, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
+    auto global_display = GlobalDisplay(metrics_start_time, auction_house, TARGET_ANIMATION_MS, file_mutex, tracked_goods);
     if (animation_fps <= 0) {
         global_display.active = false;
     }
@@ -208,6 +208,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
     std::cout << "Manually shutdown AH" << std::endl;
     auction_house->Shutdown();
     auction_house_thread.join();
+    global_display.DrawChart(true);
     global_display.Shutdown();
 
     for (auto& good : tracked_goods) {
@@ -244,7 +245,7 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
 int main(int argc, char *argv[]) {
     double duration_s = (argc > 1) ? std::stod(std::string(argv[1])) : 60;
     double animation_fps = (argc > 2) ? std::stod(std::string(argv[2])) : 2;
-    double trader_tps = (argc > 3) ? std::stod(std::string(argv[3])) : 2;
+    double trader_tps = (argc > 3) ? std::stod(std::string(argv[3])) : 5;
     Run(duration_s, animation_fps, trader_tps);
     return 0;
 }

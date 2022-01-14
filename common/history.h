@@ -96,11 +96,12 @@ public:
             return 0;// no entry found
         }
         auto start_time = log.at(name).back().second - duration;
-        double prev_value;
+
         auto it = log.at(name).rbegin();
         while (it != log.at(name).rend() && it->second >= start_time) {
             it++;
         }
+        double prev_value;
         if (it == log.at(name).rend()) {
             prev_value = log.at(name).front().first;
         } else {

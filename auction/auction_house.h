@@ -224,6 +224,10 @@ public:
         known_traders.erase(message.sender_id);
     }
 
+    double t_PercentPriceChange(const std::string& commodity, int window) const {
+        return history.prices.t_percentage_change(commodity, 1000);
+    }
+
     double MostRecentBuyPrice(const std::string& commodity) const {
         return history.buy_prices.most_recent.at(commodity);
     }
