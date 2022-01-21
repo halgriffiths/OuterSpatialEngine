@@ -151,11 +151,11 @@ void Run(double duration_s, double animation_fps, double trader_tps) {
 //        max_id++;
 //    }
 
-    auto player_trader = std::make_shared<PlayerTrader>(metrics_start_time, max_id, auction_house, 100, 50, player_inv, tracked_goods, tracked_roles, Log::DEBUG);
-    {
-        player_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, player_trader))), auction_house->id);
-        max_id++;
-    }
+//    auto player_trader = std::make_shared<PlayerTrader>(metrics_start_time, max_id, auction_house, 100, 50, player_inv, tracked_goods, tracked_roles, Log::DEBUG);
+//    {
+//        player_trader->SendMessage(*Message(max_id).AddRegisterRequest(std::move(RegisterRequest(max_id, player_trader))), auction_house->id);
+//        max_id++;
+//    }
 
     global_metrics.CollectMetrics(auction_house);
     auto global_display = GlobalDisplay(metrics_start_time, auction_house, TARGET_ANIMATION_MS, file_mutex, tracked_goods);

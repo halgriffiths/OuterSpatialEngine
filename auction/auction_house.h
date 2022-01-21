@@ -213,8 +213,9 @@ public:
             demographics[res->class_name] += 1;
         }
         known_traders[requested_id] = std::move(res);
-        auto msg = Message(id).AddRegisterResponse(RegisterResponse(id, true));
-        SendMessage(*msg, requested_id);
+        auto msg = Message(id);
+        msg.AddRegisterResponse(RegisterResponse(id, true));
+        SendMessage(msg, requested_id);
     }
     void ProcessShutdownNotify(Message& message) {
         demographics[message.shutdown_notify->class_name] -= 1;

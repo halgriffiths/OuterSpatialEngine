@@ -24,11 +24,9 @@ public:
     void ReceiveMessage(const Message incoming_message) {
         inbox.push(incoming_message);
     }
-    void SendMessage(Message& outgoing_message, int recipient) {
+    void SendMessage(Message outgoing_message, int recipient) {
         outbox.push({recipient,std::move(outgoing_message)});
     }
-
-
 };
 
 // A Trader is an Agent capable of interacting with an AuctionHouse
@@ -46,7 +44,7 @@ public:
 protected:
     friend AuctionHouse;
     std::string class_name;
-    virtual double TryTakeMoney(double quantity, bool atomic) {};
+    virtual double TryTakeMoney(double quantity, bool atomic) { return 0.0;};
     virtual void ForceTakeMoney(double quantity) {};
     virtual void AddMoney(double quantity) {};
     virtual int TryAddCommodity(const std::string& commodity, int quantity, std::optional<double> unit_price, bool atomic) {return 0;};
