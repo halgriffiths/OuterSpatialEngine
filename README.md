@@ -1,4 +1,8 @@
 # OuterSpatialEngine
+---
+> **Warning!**
+> This prototype is no longer being developed, and work is instead continued on the networking-enabled version at [OuterSpatial](https://github.com/halgriffiths/OuterSpatial)
+---
 This is a C++ port of a C# port of an economy engine called bazaarBot with heavy modifications.
 Major changes:
  - Asynchronous multithreaded operation instead of tick-based
